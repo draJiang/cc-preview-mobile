@@ -448,6 +448,107 @@ class ChatSession {
 }
 
 // ---------------------------------------------------------------------------
+// Recent-project discovery, for the "new session" cwd picker.
+//
+// Source of truth is ~/.claude/projects/ — the Claude Code CLI creates one
+// folder there per directory it has ever been run in (named by replacing
+// path separators with '-'), each containing that project's session
+// .jsonl files. That gives us a "really used Claude Code here, and when"
+// signal for free, without this app having to track its own history (it
+// can't anyway: ChatSession.close() deletes the session's json file, so a
+// closed session's cwd doesn't stick around in data/sessions/).
+//
+// The folder-name encoding is lossy for directories whose own name already
+// contains a dash (e.g. "cc-preview-mobile" and "-Users-x-minpg-cc-preview-
+// mobile" look identical to a naive split). We resolve that by probing the
+// filesystem: try grouping 1..N dash-separated words into each path
+// segment and see which grouping actually exists on disk.
+// ---------------------------------------------------------------------------
+const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
+const MAX_PROJECT_CANDIDATES = 20;
+const MAX_DASH_MERGE = 6; // how many dash-separated words can combine into one real path segment
+
+function isDirectory(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function decodeClaudeProjectFolderName(folderName) {
+  if (!folderName.startsWith('-')) return null;
+  const parts = folderName.slice(1).split('-');
+
+  function search(index, currentPath) {
+    if (index >= parts.length) {
+      return isDirectory(currentPath) ? currentPath : null;
+    }
+    for (let take = 1; take <= MAX_DASH_MERGE && index + take <= parts.length; take++) {
+      const segment = parts.slice(index, index + take).join('-');
+      if (!segment) continue;
+      const candidate = `${currentPath}/${segment}`;
+      if (isDirectory(candidate)) {
+        const found = search(index + take, candidate);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  return search(0, '');
+}
+
+function listRecentClaudeProjects() {
+  let entries;
+  try {
+    entries = fs.readdirSync(CLAUDE_PROJECTS_DIR, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const results = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const realPath = decodeClaudeProjectFolderName(entry.name);
+    if (!realPath) continue;
+
+    const dirPath = path.join(CLAUDE_PROJECTS_DIR, entry.name);
+    let lastUsed = 0;
+    try {
+      for (const f of fs.readdirSync(dirPath)) {
+        if (!f.endsWith('.jsonl')) continue;
+        lastUsed = Math.max(lastUsed, fs.statSync(path.join(dirPath, f)).mtimeMs);
+      }
+    } catch {
+      // ignore unreadable project folders
+    }
+    if (lastUsed === 0) continue; // no real session activity (e.g. an empty scratch folder)
+
+    results.push({ cwd: realPath, lastUsed });
+  }
+  return results;
+}
+
+// Merges the Claude Code history above with every currently tracked
+// session's cwd (so a path only used through this app, not yet reflected
+// on disk, still shows up), dedupes, and returns the most recent ones.
+function listProjectPathCandidates() {
+  const byPath = new Map();
+  for (const { cwd, lastUsed } of listRecentClaudeProjects()) {
+    byPath.set(cwd, Math.max(byPath.get(cwd) || 0, lastUsed));
+  }
+  for (const session of sessions.values()) {
+    byPath.set(session.cwd, Math.max(byPath.get(session.cwd) || 0, session.lastActivity));
+  }
+
+  return [...byPath.entries()]
+    .map(([cwd, lastUsed]) => ({ cwd, label: path.basename(cwd) || cwd, lastUsed }))
+    .sort((a, b) => b.lastUsed - a.lastUsed)
+    .slice(0, MAX_PROJECT_CANDIDATES);
+}
+
+// ---------------------------------------------------------------------------
 // Global session registry
 // ---------------------------------------------------------------------------
 const sessions = new Map(); // id -> ChatSession
@@ -530,10 +631,8 @@ loadPersistedSessions();
 // HTTP + WebSocket server
 // ---------------------------------------------------------------------------
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-// Markdown rendering libs for the client, served locally so the page works without internet access.
-app.use('/vendor/marked', express.static(path.join(__dirname, 'node_modules/marked/lib')));
-app.use('/vendor/dompurify', express.static(path.join(__dirname, 'node_modules/dompurify/dist')));
+// The Vue client is built into dist/ by `npm run build` (run automatically before `npm start`).
+app.use(express.static(path.join(__dirname, 'dist')));
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   const addrs = Object.values(os.networkInterfaces())
@@ -588,6 +687,8 @@ wss.on('connection', (ws) => {
       currentSession()?.changeModel(msg.model);
     } else if (msg.type === 'list_sessions') {
       ws.send(JSON.stringify({ type: 'sessions', sessions: listSessionsSorted() }));
+    } else if (msg.type === 'list_project_paths') {
+      ws.send(JSON.stringify({ type: 'project_paths', paths: listProjectPathCandidates() }));
     } else if (msg.type === 'create_session') {
       const cwd = typeof msg.cwd === 'string' && msg.cwd.trim() ? path.resolve(msg.cwd.trim()) : DEFAULT_PROJECT_DIR;
       const session = createSession(cwd);

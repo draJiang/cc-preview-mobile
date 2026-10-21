@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.205 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0 0);
+  /* Claude orange (#d97757) — reserved for send, user bubble and primary actions */
+  --primary: oklch(0.6724 0.1308 38.76);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.945 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.6 0.15 150);
+  --border: oklch(0.912 0 0);
+  --input: oklch(0.912 0 0);
+  --ring: oklch(0.6724 0.1308 38.76);
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.205 0 0);
+}
+
+.dark {
+  --background: oklch(0.17 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.225 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --primary: oklch(0.6724 0.1308 38.76);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+  --accent: oklch(0.27 0 0);
+  --accent-foreground: oklch(0.96 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.72 0.15 150);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.6724 0.1308 38.76);
+  --sidebar: oklch(0.19 0 0);
+  --sidebar-foreground: oklch(0.96 0 0);
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 15px;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Assistant markdown: compact, mobile-sized type scale (12 / 14 / 15 / 17).
+   Selectors out-rank the renderer's `.stream-markdown .text-*` rules. */
+.stream-markdown.md-body h1 { font-size: 17px; margin: 1.25rem 0 0.5rem; }
+.stream-markdown.md-body h2 { font-size: 16px; margin: 1.25rem 0 0.5rem; }
+.stream-markdown.md-body h3,
+.stream-markdown.md-body h4,
+.stream-markdown.md-body h5,
+.stream-markdown.md-body h6 { font-size: 15px; margin: 1rem 0 0.375rem; }
+.stream-markdown.md-body p { margin: 0.5rem 0; }
+.stream-markdown.md-body :not(pre) > code { font-size: 13px; padding: 0.0625rem 0.3125rem; }
+.stream-markdown.md-body pre,
+.stream-markdown.md-body pre code { font-size: 12.5px; }
+.stream-markdown.md-body table { font-size: 13px; }

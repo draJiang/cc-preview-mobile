@@ -23,6 +23,8 @@ npm install
 npm start
 ```
 
+`npm start` 会先用 Vite 把 `client/` 构建到 `dist/`，再启动服务。
+
 终端会打印出局域网访问地址，例如：
 
 ```
@@ -43,13 +45,24 @@ PROJECT_DIR=/path/to/your/project npm start
 PORT=8080 npm start
 ```
 
+## 开发前端
+
+前端在 `client/`（Vue 3 + Vite + Tailwind CSS v4 + [shadcn-vue](https://www.shadcn-vue.com/)，聊天组件来自 [ai-elements-vue](https://github.com/vuepont/ai-elements-vue)，源码直接放在 `client/src/components/` 里，可以随意修改）。
+
+```bash
+npm run dev
+```
+
+同时启动后端（`PORT`，默认 4173）和带热更新的 Vite 开发服务器（默认 5173，`/ws` 会代理到后端）。改完后用 `npm run typecheck` 做类型检查。
+
 ## 功能
 
-- 手机网页里直接发消息给 Claude Code，实时看到回复、思考过程、工具调用和结果
-- 工具调用需要授权时，网页上会弹出确认卡片（允许 / 拒绝 / 本次会话始终允许）
-- 顶部可以切换权限模式：默认逐项确认 / 自动接受编辑 / 仅规划
-- 中断按钮（■）可以打断正在进行的操作
-- **多 Session 管理**：点头部标题打开会话面板，可以新建 Session（自定义项目路径）、切换 Session、关闭 Session（点两次 × 确认）
+- 手机网页里直接发消息给 Claude Code，实时看到回复、思考过程、工具调用和结果；连续的工具调用会折叠成步骤，Bash 显示命令、Edit 显示 diff
+- 工具调用需要授权时，网页上会弹出确认卡片（允许 / 拒绝 / 本次会话始终允许）；卡片滚出屏幕时，输入框上方会出现"待审批"提示，点一下跳回卡片
+- 右上角 ⚙ 是唯一的设置入口：权限模式、模型、用量、主题（跟随系统 / 浅色 / 深色）、默认是否展开工具详情和思考过程、关闭当前会话
+- 权限模式不是"默认"时，输入框上方会显示当前模式
+- Claude 工作时，没输入内容的情况下发送按钮变成停止（■），可以打断当前操作；输入了内容则照常发送（排队到下一轮）
+- **多 Session 管理**：点左上角 ☰ 或标题打开会话列表（按项目分组），可以新建 Session（从最近项目中选，或输入任意路径）、切换 Session、关闭 Session（⋯ 菜单里关闭，需二次确认）
 - **重启不丢会话**：Session 列表和聊天记录会存到本地 `data/sessions/*.json`，重启 `npm start` 后自动恢复，并通过 SDK 的 `resume` 接回真实的 Claude Code 对话上下文（不只是界面回放）
 
 ## 说明 & 限制
