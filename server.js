@@ -531,6 +531,9 @@ loadPersistedSessions();
 // ---------------------------------------------------------------------------
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+// Markdown rendering libs for the client, served locally so the page works without internet access.
+app.use('/vendor/marked', express.static(path.join(__dirname, 'node_modules/marked/lib')));
+app.use('/vendor/dompurify', express.static(path.join(__dirname, 'node_modules/dompurify/dist')));
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   const addrs = Object.values(os.networkInterfaces())

@@ -58,6 +58,31 @@ function el(tag, cls, text) {
   return e;
 }
 
+const markdownReady = typeof window.marked !== 'undefined' && typeof window.DOMPurify !== 'undefined';
+if (markdownReady) {
+  marked.setOptions({ gfm: true, breaks: true });
+  // Open links outside the app so tapping one doesn't navigate away from the chat.
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A' && node.getAttribute('href')) {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
+
+function markdownBubble(text) {
+  if (!markdownReady) return el('div', 'bubble assistant', text);
+  const bubble = el('div', 'bubble assistant md');
+  bubble.innerHTML = DOMPurify.sanitize(marked.parse(text || ''));
+  // Wide tables scroll horizontally instead of stretching the bubble.
+  for (const table of bubble.querySelectorAll('table')) {
+    const wrap = el('div', 'md-table-wrap');
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+  }
+  return bubble;
+}
+
 function renderItem(item) {
   const wasNearBottom = nearBottom();
 
@@ -89,7 +114,7 @@ function renderItem(item) {
     }
     case 'assistant_text': {
       const row = el('div', 'row assistant');
-      row.appendChild(el('div', 'bubble assistant', item.text));
+      row.appendChild(markdownBubble(item.text));
       chat.appendChild(row);
       break;
     }
