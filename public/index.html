@@ -14,12 +14,17 @@
       <div id="header-cwd">连接中…</div>
     </button>
     <button id="usage-btn" class="icon-btn" title="用量">◔</button>
-    <select id="mode-select" title="权限模式">
-      <option value="default">默认（逐项确认）</option>
-      <option value="acceptEdits">自动接受编辑</option>
-      <option value="plan">仅规划</option>
-      <option value="auto">自动模式（AI 审批，需账号支持）</option>
-    </select>
+    <div id="header-controls">
+      <select id="model-select" title="模型">
+        <option value="default">默认模型</option>
+      </select>
+      <select id="mode-select" title="权限模式">
+        <option value="default">默认（逐项确认）</option>
+        <option value="acceptEdits">自动接受编辑</option>
+        <option value="plan">仅规划</option>
+        <option value="auto">自动模式（AI 审批，需账号支持）</option>
+      </select>
+    </div>
   </header>
 
   <main id="chat"></main>

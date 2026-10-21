@@ -2,6 +2,7 @@ const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('send-btn');
 const modeSelect = document.getElementById('mode-select');
+const modelSelect = document.getElementById('model-select');
 const statusDot = document.getElementById('status-dot');
 const headerCwd = document.getElementById('header-cwd');
 const headerTitle = document.getElementById('header-title');
@@ -25,6 +26,9 @@ const askCards = new Map(); // requestId -> ask_user_question card element
 
 let isProcessing = false;
 let sawSystemInit = false; // whether the current session's history/stream has emitted system_init yet
+let initCwd = ''; // cwd from the latest system_init, so the header can be redrawn after a model switch
+let currentModel = 'default'; // selected value in the model picker
+let modelsCache = [];
 
 function setProcessing(state) {
   isProcessing = state;
@@ -63,6 +67,7 @@ function renderItem(item) {
   switch (item.kind) {
     case 'system_init': {
       sawSystemInit = true;
+      initCwd = item.cwd;
       headerCwd.textContent = `${item.cwd}  ·  ${item.model}`;
       modeSelect.value = item.permissionMode || 'default';
       const row = el('div', 'row center');
@@ -270,6 +275,12 @@ function renderItem(item) {
       modeSelect.value = item.mode;
       break;
     }
+    case 'model_changed': {
+      currentModel = item.model;
+      renderModelOptions();
+      if (sawSystemInit) headerCwd.textContent = `${initCwd}  ·  ${item.label}`;
+      break;
+    }
     case 'result': {
       const row = el('div', 'row center');
       const parts = [];
@@ -345,6 +356,11 @@ function connect() {
       sessionsCache = msg.sessions;
       renderSessionsList();
       updateHeaderFromCache();
+    } else if (msg.type === 'models') {
+      if (msg.sessionId !== currentSessionId) return;
+      modelsCache = msg.models || [];
+      currentModel = msg.current || 'default';
+      renderModelOptions();
     } else if (msg.type === 'usage') {
       renderUsage(msg.data);
     } else if (msg.type === 'usage_error') {
@@ -413,6 +429,30 @@ function renderSessionsList() {
 
     sessionsList.appendChild(row);
   }
+}
+
+function renderModelOptions() {
+  modelSelect.innerHTML = '';
+  const models = modelsCache.length ? modelsCache : [{ value: 'default', displayName: '默认模型' }];
+  for (const m of models) {
+    const opt = el('option', null, m.displayName || m.value);
+    opt.value = m.value;
+    if (m.description) opt.title = m.description;
+    modelSelect.appendChild(opt);
+  }
+  // A persisted explicit id (e.g. 'claude-opus-5-5') may be covered by an
+  // alias row ('opus'); otherwise show it as its own entry.
+  let value = currentModel;
+  if (!models.some((m) => m.value === value)) {
+    const alias = models.find((m) => m.resolvedModel === value);
+    if (alias) value = alias.value;
+    else {
+      const opt = el('option', null, value);
+      opt.value = value;
+      modelSelect.appendChild(opt);
+    }
+  }
+  modelSelect.value = value;
 }
 
 function openSessionsPanel() {
@@ -512,6 +552,10 @@ input.addEventListener('keydown', (e) => {
     e.preventDefault();
     submitMessage();
   }
+});
+
+modelSelect.addEventListener('change', () => {
+  send({ type: 'set_model', model: modelSelect.value });
 });
 
 modeSelect.addEventListener('change', () => {

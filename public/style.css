@@ -51,7 +51,8 @@ body {
 #header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   padding: max(10px, env(safe-area-inset-top)) 14px 10px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -78,9 +79,15 @@ body {
   font: inherit;
   color: inherit;
 }
-#header-title { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 4px; }
+#header-title {
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 #header-title::after {
-  content: '⌄';
+  content: ' ⌄';
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -92,14 +99,22 @@ body {
   text-overflow: ellipsis;
 }
 
-#mode-select {
+#header-controls {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+#mode-select,
+#model-select {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   padding: 5px 6px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  max-width: 40vw;
 }
 
 #chat {

@@ -90,6 +90,7 @@ class ChatSession {
     this.started = false;
     this._saveTimer = null;
     this.permissionMode = 'default'; // mirrors the SDK's actual current mode, kept in sync via system_init/changeMode
+    this.model = restore?.model || null; // model alias/id picked in the UI; null = SDK default. Re-applied on resume.
   }
 
   summary() {
@@ -120,6 +121,7 @@ class ChatSession {
       createdAt: this.createdAt,
       lastActivity: this.lastActivity,
       sdkSessionId: this.sdkSessionId,
+      model: this.model,
       history: this.history,
     };
     fs.writeFile(path.join(DATA_DIR, `${this.id}.json`), JSON.stringify(data), (err) => {
@@ -329,6 +331,43 @@ class ChatSession {
     }
   }
 
+  async changeModel(model) {
+    if (!this.activeQuery?.setModel) {
+      this.emit({ kind: 'system_note', text: `模型切换失败（会话尚未就绪）：${model}` });
+      return;
+    }
+    // 'default' is the picker's "use the recommended model" row; the SDK
+    // expresses that as setModel(undefined).
+    const next = model && model !== 'default' ? model : null;
+    try {
+      await this.activeQuery.setModel(next ?? undefined);
+      this.model = next;
+      const label = this.modelLabel(next);
+      this.emit({ kind: 'system_note', text: `模型已切换为：${label}` });
+      this.emit({ kind: 'model_changed', model: next || 'default', label });
+    } catch (err) {
+      this.emit({ kind: 'system_note', text: `切换到 ${model} 失败：${err?.message || err}` });
+      this.emit({ kind: 'model_changed', model: this.model || 'default', label: this.modelLabel(this.model) });
+    }
+  }
+
+  modelLabel(model) {
+    const key = model || 'default';
+    return cachedModels.find((m) => m.value === key)?.displayName || key;
+  }
+
+  async loadModels() {
+    try {
+      const models = await this.activeQuery.supportedModels();
+      if (Array.isArray(models) && models.length) {
+        cachedModels = models;
+        broadcastModels();
+      }
+    } catch (err) {
+      console.error('获取模型列表失败：', err?.message || err);
+    }
+  }
+
   async resolvePermission(requestId, approve, alwaysAllow) {
     const pending = this.pendingPermissions.get(requestId);
     if (!pending) return;
@@ -367,8 +406,10 @@ class ChatSession {
       canUseTool: (toolName, input, opts) => this.canUseTool(toolName, input, opts),
     };
     if (this.sdkSessionId) options.resume = this.sdkSessionId;
+    if (this.model) options.model = this.model;
 
     this.activeQuery = query({ prompt: this.inputQueue.iterator, options });
+    this.loadModels();
 
     try {
       for await (const message of this.activeQuery) {
@@ -411,6 +452,22 @@ class ChatSession {
 // ---------------------------------------------------------------------------
 const sessions = new Map(); // id -> ChatSession
 const allClients = new Set(); // every connected ws, for session-list broadcasts
+let cachedModels = []; // supportedModels() result; account-wide, so shared across sessions
+
+function modelsPayload(session) {
+  return JSON.stringify({
+    type: 'models',
+    sessionId: session?.id,
+    models: cachedModels,
+    current: session?.model || 'default',
+  });
+}
+
+function broadcastModels() {
+  for (const ws of allClients) {
+    if (ws.readyState === ws.OPEN) ws.send(modelsPayload(sessions.get(ws.sessionId)));
+  }
+}
 
 function listSessionsSorted() {
   return [...sessions.values()]
@@ -464,6 +521,7 @@ function attachToSession(ws, session) {
   session.viewers.add(ws);
   session.ensureStarted();
   ws.send(JSON.stringify({ type: 'history', sessionId: session.id, items: session.history }));
+  ws.send(modelsPayload(session));
 }
 
 loadPersistedSessions();
@@ -523,6 +581,8 @@ wss.on('connection', (ws) => {
       currentSession()?.activeQuery?.interrupt?.().catch(() => {});
     } else if (msg.type === 'set_permission_mode') {
       currentSession()?.changeMode(msg.mode);
+    } else if (msg.type === 'set_model' && typeof msg.model === 'string') {
+      currentSession()?.changeModel(msg.model);
     } else if (msg.type === 'list_sessions') {
       ws.send(JSON.stringify({ type: 'sessions', sessions: listSessionsSorted() }));
     } else if (msg.type === 'create_session') {
@@ -580,6 +640,7 @@ function flushAndExit() {
           createdAt: session.createdAt,
           lastActivity: session.lastActivity,
           sdkSessionId: session.sdkSessionId,
+          model: session.model,
           history: session.history,
         }),
       );
