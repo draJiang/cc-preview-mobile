@@ -10,10 +10,12 @@ interface Prefs {
   expandThinking: boolean
   lastModel: string
   lastMode: string
+  // Project directories collapsed in the sessions list
+  collapsedGroups: string[]
 }
 
 const STORAGE_KEY = 'cc-mobile-prefs'
-const defaults: Prefs = { theme: 'system', expandTools: false, expandThinking: false, lastModel: '', lastMode: '' }
+const defaults: Prefs = { theme: 'system', expandTools: false, expandThinking: false, lastModel: '', lastMode: '', collapsedGroups: [] }
 
 function load(): Prefs {
   try {

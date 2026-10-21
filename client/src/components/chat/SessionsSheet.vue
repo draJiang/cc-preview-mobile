@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SessionSummary } from '@/lib/protocol'
-import { ChevronLeftIcon, EllipsisIcon, FolderIcon, PlusIcon, Trash2Icon } from '@lucide/vue'
+import { ChevronLeftIcon, ChevronRightIcon, EllipsisIcon, FolderIcon, PlusIcon, Trash2Icon } from '@lucide/vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useChat } from '@/composables/useChat'
+import { usePrefs } from '@/composables/usePrefs'
 import { useUi } from '@/composables/useUi'
 import { relativeTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,15 @@ import { computed, ref, watch } from 'vue'
 
 const { sessions, currentSessionId, projectPaths, switchSession, createSession, closeSession, refreshSessions } = useChat()
 const { sessionsOpen } = useUi()
+const prefs = usePrefs()
+
+const isCollapsed = (cwd: string) => prefs.collapsedGroups.includes(cwd)
+
+function toggleGroup(cwd: string) {
+  prefs.collapsedGroups = isCollapsed(cwd)
+    ? prefs.collapsedGroups.filter(c => c !== cwd)
+    : [...prefs.collapsedGroups, cwd]
+}
 
 const view = ref<'list' | 'new'>('list')
 const newPath = ref('')
@@ -99,12 +109,19 @@ function confirmClose() {
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           <div v-for="group in groups" :key="group.cwd" class="mt-3">
-            <div class="flex items-center gap-1.5 px-2 pb-1 text-xs text-muted-foreground">
-              <FolderIcon class="size-3.5" />
-              <span class="truncate">{{ group.name }}</span>
-            </div>
+            <button
+              type="button"
+              class="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-accent/60"
+              :aria-expanded="!isCollapsed(group.cwd)"
+              @click="toggleGroup(group.cwd)"
+            >
+              <ChevronRightIcon :class="cn('size-3.5 shrink-0 transition-transform', !isCollapsed(group.cwd) && 'rotate-90')" />
+              <FolderIcon class="size-3.5 shrink-0" />
+              <span class="min-w-0 flex-1 truncate">{{ group.name }}</span>
+              <span class="shrink-0 tabular-nums">{{ group.list.length }}</span>
+            </button>
             <div
-              v-for="s in group.list"
+              v-for="s in isCollapsed(group.cwd) ? [] : group.list"
               :key="s.id"
               :class="cn('flex items-center rounded-lg', s.id === currentSessionId ? 'bg-accent' : 'hover:bg-accent/60')"
             >
