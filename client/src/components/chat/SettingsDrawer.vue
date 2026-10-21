@@ -77,6 +77,17 @@ function pickMode(mode: string) {
   settingsPage.value = 'main'
 }
 
+// The SDK lists the current aliases (default/opus/sonnet/...) followed by
+// pinned ids of older models. Keep the aliases up front and fold the rest.
+const isPinned = (value: string) => value.startsWith('claude-')
+const mainModels = computed(() => modelOptions.value.filter(m => !isPinned(m.value)))
+const olderModels = computed(() => modelOptions.value.filter(m => isPinned(m.value)))
+const showOlder = ref(false)
+watch(() => settingsPage.value, (page) => {
+  if (page === 'model')
+    showOlder.value = isPinned(selectedModel.value)
+})
+
 function pickModel(model: string) {
   if (model !== selectedModel.value)
     chat.setModel(model)
@@ -250,22 +261,49 @@ function closeCurrent() {
         </div>
 
         <!-- Model -->
-        <div v-else class="settings-group" role="radiogroup">
-          <button
-            v-for="m in modelOptions"
-            :key="m.value"
-            type="button"
-            role="radio"
-            :aria-checked="selectedModel === m.value"
-            class="settings-row items-start py-3"
-            @click="pickModel(m.value)"
-          >
-            <span class="min-w-0 flex-1 text-left">
-              <span class="block">{{ m.displayName || m.value }}</span>
-              <span v-if="m.description" class="mt-0.5 block text-xs text-muted-foreground">{{ m.description }}</span>
-            </span>
-            <CheckIcon v-if="selectedModel === m.value" class="mt-0.5 size-4 text-primary" />
-          </button>
+        <div v-else class="flex flex-col gap-3">
+          <div class="settings-group" role="radiogroup" aria-label="模型">
+            <button
+              v-for="m in mainModels"
+              :key="m.value"
+              type="button"
+              role="radio"
+              :aria-checked="selectedModel === m.value"
+              class="settings-row items-start py-3"
+              @click="pickModel(m.value)"
+            >
+              <span class="min-w-0 flex-1 text-left">
+                <span class="block">{{ m.displayName || m.value }}</span>
+                <span v-if="m.description" class="mt-0.5 block text-xs text-muted-foreground">{{ m.description }}</span>
+              </span>
+              <CheckIcon v-if="selectedModel === m.value" class="mt-0.5 size-4 text-primary" />
+            </button>
+          </div>
+          <template v-if="olderModels.length">
+            <button
+              type="button"
+              class="flex min-h-10 items-center gap-1 self-start px-1 text-sm text-muted-foreground"
+              :aria-expanded="showOlder"
+              @click="showOlder = !showOlder"
+            >
+              更早的模型（{{ olderModels.length }}）
+              <ChevronRightIcon :class="cn('size-4 transition-transform', showOlder && 'rotate-90')" />
+            </button>
+            <div v-if="showOlder" class="settings-group" role="radiogroup" aria-label="更早的模型">
+              <button
+                v-for="m in olderModels"
+                :key="m.value"
+                type="button"
+                role="radio"
+                :aria-checked="selectedModel === m.value"
+                class="settings-row py-2.5"
+                @click="pickModel(m.value)"
+              >
+                <span class="min-w-0 flex-1 text-left">{{ m.displayName || m.value }}</span>
+                <CheckIcon v-if="selectedModel === m.value" class="size-4 text-primary" />
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </DrawerContent>
