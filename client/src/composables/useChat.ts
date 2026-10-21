@@ -72,6 +72,10 @@ function applyItem(item: ChatItem, live: boolean) {
       if (/fail|error|timed out/i.test(item.text))
         toast.error(item.text)
       break
+    case 'notice':
+      if (live && item.level === 'error')
+        toast.error(item.text)
+      break
   }
 }
 
@@ -185,7 +189,7 @@ export function useChat() {
     permissionMode,
     isProcessing,
     usage,
-    sendMessage: (text: string) => send({ type: 'user_message', text }),
+    sendMessage: (text: string, quote?: string) => send({ type: 'user_message', text, ...(quote && { quote }) }),
     interrupt: () => send({ type: 'interrupt' }),
     respondPermission: (requestId: string, approve: boolean, alwaysAllow: boolean) =>
       send({ type: 'permission_response', requestId, approve, alwaysAllow }),

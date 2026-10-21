@@ -59,14 +59,70 @@ function createInputQueue() {
   };
 }
 
+// Flattens a tool_result's content to text. Besides plain text blocks this
+// covers the non-text blocks tools return: ToolSearch answers with
+// tool_reference blocks, Read on a PDF with a document block, and some tools
+// with search_result blocks. Images are handled separately (extractImages).
 function textFromBlocks(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
-  return content
-    .filter((b) => b && b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
+  const parts = [];
+  const toolRefs = [];
+  for (const b of content) {
+    if (!b) continue;
+    if (b.type === 'text' && b.text) parts.push(b.text);
+    else if (b.type === 'tool_reference' && b.tool_name) toolRefs.push(b.tool_name);
+    else if (b.type === 'document') parts.push(`[Document${b.title ? `: ${b.title}` : ''}${b.source?.media_type ? ` (${b.source.media_type})` : ''}]`);
+    else if (b.type === 'search_result') parts.push([b.title, b.source, textFromBlocks(b.content)].filter(Boolean).join('\n'));
+  }
+  if (toolRefs.length) parts.unshift(`Loaded tools: ${toolRefs.join(', ')}`);
+  return parts.join('\n');
 }
+
+// Server-side tool results inside an assistant message (web_search_tool_result,
+// web_fetch_tool_result, mcp_tool_result, code execution…) don't share one
+// shape; pull out whatever is readable.
+function serverToolResultText(block) {
+  const c = block.content;
+  if (Array.isArray(c)) {
+    const hits = c.filter((r) => r?.type === 'web_search_result');
+    if (hits.length) return hits.map((r) => `${r.title || r.url}\n${r.url}`).join('\n\n');
+    return textFromBlocks(c);
+  }
+  if (c && typeof c === 'object') {
+    if (c.error_code) return `Error: ${c.error_code}`;
+    if (typeof c.stdout === 'string' || typeof c.stderr === 'string') return [c.stdout, c.stderr].filter(Boolean).join('\n');
+    if (c.url) return c.url;
+    try {
+      return JSON.stringify(c, null, 2);
+    } catch {
+      return '';
+    }
+  }
+  return typeof c === 'string' ? c : '';
+}
+
+const RESULT_ERROR_LABELS = {
+  error_max_turns: 'Stopped: reached the maximum number of turns',
+  error_max_budget_usd: 'Stopped: reached the budget limit',
+  error_max_structured_output_retries: 'Stopped: structured output retries exhausted',
+  error_during_execution: 'Stopped with an error',
+};
+
+const RATE_LIMIT_LABELS = {
+  five_hour: '5-hour limit',
+  seven_day: 'Weekly limit',
+  seven_day_opus: 'Weekly Opus limit',
+  seven_day_sonnet: 'Weekly Sonnet limit',
+  overage: 'Extra usage limit',
+};
+
+function formatResetTime(epochSeconds) {
+  if (!epochSeconds) return '';
+  const d = new Date(epochSeconds * 1000);
+  return ` · resets ${d.toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+}
+
 
 // Image blocks in tool results (Read on a .png, screenshot tools, MCP tools
 // returning images…) are written to data/media/<sessionId>/ and referenced
@@ -212,36 +268,56 @@ class ChatSession {
             sessionId: message.session_id,
           });
           broadcastSessionList();
-        } else if (message.subtype === 'permission_denied') {
-          this.emit({
-            kind: 'system_note',
-            text: `Permission denied: ${message.tool_name} — ${message.message}`,
-          });
+        } else {
+          this.handleSystemMessage(message);
         }
         break;
       }
       case 'assistant': {
         const blocks = message.message?.content;
         if (!Array.isArray(blocks)) break;
+        // Messages from a subagent (Agent/Task tool) carry the id of the tool
+        // call that spawned them, so the client can nest them under it
+        // instead of mixing them into the main conversation.
+        const parent = message.parent_tool_use_id ? { parentToolUseId: message.parent_tool_use_id } : {};
+        let hasText = false;
         for (const block of blocks) {
           if (block.type === 'text' && block.text) {
-            this.emit({ kind: 'assistant_text', text: block.text });
+            hasText = true;
+            this.emit({ kind: 'assistant_text', text: block.text, ...parent });
           } else if (block.type === 'thinking' && block.thinking) {
-            this.emit({ kind: 'thinking', text: block.thinking });
-          } else if (block.type === 'tool_use') {
+            this.emit({ kind: 'thinking', text: block.thinking, ...parent });
+          } else if (block.type === 'redacted_thinking') {
+            this.emit({ kind: 'thinking', text: '', redacted: true, ...parent });
+          } else if (block.type === 'tool_use' || block.type === 'server_tool_use' || block.type === 'mcp_tool_use') {
             this.emit({
               kind: 'tool_use',
               toolUseId: block.id,
-              toolName: block.name,
-              input: block.input,
+              toolName: block.type === 'mcp_tool_use' && block.server_name ? `mcp__${block.server_name}__${block.name}` : block.name,
+              input: block.input || {},
+              ...parent,
+            });
+          } else if (typeof block.type === 'string' && block.type.endsWith('_tool_result') && block.tool_use_id) {
+            this.emit({
+              kind: 'tool_result',
+              toolUseId: block.tool_use_id,
+              content: serverToolResultText(block),
+              isError: !!block.is_error || !!block.content?.error_code,
+              ...parent,
             });
           }
+        }
+        // API failures (auth, billing, overload…) are flagged on the message;
+        // normally a text block explains them, but not always.
+        if (message.error && !hasText) {
+          this.emit({ kind: 'notice', level: 'error', text: `API error: ${message.error}`, ...parent });
         }
         break;
       }
       case 'user': {
         const blocks = message.message?.content;
         if (!Array.isArray(blocks)) break;
+        const parent = message.parent_tool_use_id ? { parentToolUseId: message.parent_tool_use_id } : {};
         for (const block of blocks) {
           if (block.type === 'tool_result') {
             const item = {
@@ -249,6 +325,7 @@ class ChatSession {
               toolUseId: block.tool_use_id,
               content: textFromBlocks(block.content),
               isError: !!block.is_error,
+              ...parent,
             };
             const images = extractImages(block.content, this.id);
             if (images.length) item.images = images;
@@ -258,16 +335,138 @@ class ChatSession {
         break;
       }
       case 'result': {
+        const errors = Array.isArray(message.errors) ? message.errors.filter(Boolean) : [];
         this.emit({
           kind: 'result',
           isError: !!message.is_error,
           resultText: message.subtype === 'success' ? message.result : message.subtype,
+          errorText: message.subtype === 'success'
+            ? (message.is_error ? message.result : undefined)
+            : [RESULT_ERROR_LABELS[message.subtype] || message.subtype, ...errors].join('\n'),
           costUsd: message.total_cost_usd,
           durationMs: message.duration_ms,
           numTurns: message.num_turns,
         });
         break;
       }
+      case 'rate_limit_event': {
+        const info = message.rate_limit_info || {};
+        // Only surface changes worth interrupting for: a new warning
+        // threshold, or actually being limited.
+        const key = `${info.status}:${info.rateLimitType}:${info.surpassedThreshold ?? ''}`;
+        if (info.status === 'allowed' || key === this.lastRateLimitKey) break;
+        this.lastRateLimitKey = key;
+        const label = RATE_LIMIT_LABELS[info.rateLimitType] || 'Usage limit';
+        const pct = typeof info.utilization === 'number' ? ` (${Math.round(info.utilization * (info.utilization <= 1 ? 100 : 1))}% used)` : '';
+        this.emit(info.status === 'rejected'
+          ? { kind: 'notice', level: 'error', text: `${label} reached${formatResetTime(info.resetsAt)}` }
+          : { kind: 'notice', level: 'warning', text: `Approaching ${label.toLowerCase()}${pct}${formatResetTime(info.resetsAt)}` });
+        break;
+      }
+      case 'conversation_reset':
+        this.emit({ kind: 'notice', level: 'info', text: 'Conversation context was reset' });
+        break;
+      case 'auth_status':
+        if (message.error) this.emit({ kind: 'notice', level: 'error', text: `Authentication error: ${message.error}` });
+        break;
+      default:
+        // tool_progress, tool_use_summary, prompt_suggestion, stream_event…
+        // carry nothing that needs to stay in the transcript.
+        break;
+    }
+  }
+
+  // system/* messages other than init. Ones that only matter to an
+  // interactive terminal UI (hook_started, commands_changed,
+  // session_state_changed…) are ignored, and so is task_progress: a
+  // subagent's own messages already stream in, nested under its tool call.
+  handleSystemMessage(message) {
+    switch (message.subtype) {
+      case 'permission_denied':
+        this.emit({
+          kind: 'system_note',
+          text: `Permission denied: ${message.tool_name} — ${message.message}`,
+        });
+        break;
+      case 'compact_boundary': {
+        const m = message.compact_metadata || {};
+        this.emit({
+          kind: 'compact',
+          trigger: m.trigger,
+          preTokens: m.pre_tokens,
+          postTokens: m.post_tokens,
+        });
+        break;
+      }
+      case 'status':
+        if (message.status === 'compacting') {
+          this.emit({ kind: 'notice', level: 'info', text: 'Compacting conversation…' });
+        } else if (message.compact_result === 'failed') {
+          this.emit({ kind: 'notice', level: 'error', text: `Compaction failed${message.compact_error ? `: ${message.compact_error}` : ''}` });
+        }
+        break;
+      case 'api_retry': {
+        const status = message.error_status ? ` ${message.error_status}` : '';
+        this.emit({
+          kind: 'notice',
+          level: 'warning',
+          text: `API error${status} (${message.error}), retrying in ${Math.round(message.retry_delay_ms / 1000)}s · attempt ${message.attempt}/${message.max_retries}`,
+        });
+        break;
+      }
+      case 'model_refusal_fallback':
+      case 'model_refusal_no_fallback':
+        this.emit({
+          kind: 'notice',
+          level: 'warning',
+          text: message.content || (message.fallback_model
+            ? `${message.original_model} declined; switched to ${message.fallback_model}`
+            : `${message.original_model} declined to respond`),
+        });
+        break;
+      case 'local_command_output':
+        if (message.content) this.emit({ kind: 'command_output', text: message.content });
+        break;
+      case 'informational':
+        if (message.content) {
+          this.emit({ kind: 'notice', level: message.level === 'warning' ? 'warning' : 'info', text: message.content });
+        }
+        break;
+      case 'notification':
+        if (message.text) {
+          this.emit({ kind: 'notice', level: message.priority === 'high' || message.priority === 'immediate' ? 'warning' : 'info', text: message.text });
+        }
+        break;
+      case 'hook_response':
+        if (message.outcome === 'error') {
+          const detail = (message.stderr || message.output || '').trim();
+          this.emit({ kind: 'notice', level: 'error', text: `Hook ${message.hook_name} failed${detail ? `: ${detail}` : ''}` });
+        }
+        break;
+      case 'task_started':
+        // Foreground subagents already show up as their Agent tool call.
+        if (message.is_backgrounded && !message.tool_use_id && !message.skip_transcript && !message.ambient) {
+          this.emit({ kind: 'notice', level: 'info', text: `Background task started: ${message.description}` });
+        }
+        break;
+      case 'task_notification':
+        if (!message.skip_transcript && !message.ambient) {
+          this.emit({
+            kind: 'task_notification',
+            toolUseId: message.tool_use_id,
+            status: message.status,
+            summary: message.summary,
+          });
+        }
+        break;
+      case 'memory_recall':
+        if (message.memories?.length) {
+          this.emit({ kind: 'notice', level: 'info', text: `Recalled ${message.memories.length} ${message.memories.length === 1 ? 'memory' : 'memories'}: ${message.memories.map((m) => path.basename(m.path)).join(', ')}` });
+        }
+        break;
+      case 'mirror_error':
+        this.emit({ kind: 'notice', level: 'error', text: `Transcript sync error: ${message.error}` });
+        break;
       default:
         break;
     }
@@ -462,12 +661,16 @@ class ChatSession {
     }
   }
 
-  sendUserMessage(text) {
+  sendUserMessage(text, quote) {
     this.ensureStarted();
-    this.emit({ kind: 'user_text', text });
+    this.emit({ kind: 'user_text', text, ...(quote && { quote }) });
+    // Claude sees the quote as a Markdown blockquote ahead of the reply.
+    const content = quote
+      ? `${quote.split('\n').map((line) => `> ${line}`).join('\n')}\n\n${text}`
+      : text;
     this.inputQueue.push({
       type: 'user',
-      message: { role: 'user', content: text },
+      message: { role: 'user', content },
       parent_tool_use_id: null,
     });
   }
@@ -715,7 +918,8 @@ wss.on('connection', (ws) => {
     const currentSession = () => sessions.get(ws.sessionId);
 
     if (msg.type === 'user_message' && typeof msg.text === 'string' && msg.text.trim()) {
-      currentSession()?.sendUserMessage(msg.text.trim());
+      const quote = typeof msg.quote === 'string' && msg.quote.trim() ? msg.quote.trim().slice(0, 4000) : undefined;
+      currentSession()?.sendUserMessage(msg.text.trim(), quote);
     } else if (msg.type === 'permission_response') {
       currentSession()?.resolvePermission(msg.requestId, !!msg.approve, !!msg.alwaysAllow);
     } else if (msg.type === 'ask_user_question_response') {

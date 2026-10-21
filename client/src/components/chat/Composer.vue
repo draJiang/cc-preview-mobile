@@ -1,20 +1,29 @@
 <script setup lang="ts">
-import { ArrowUpIcon, BellDotIcon, SquareIcon } from '@lucide/vue'
+import { ArrowUpIcon, BellDotIcon, SquareIcon, XIcon } from '@lucide/vue'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { useBlocks } from '@/composables/useBlocks'
 import { useChat } from '@/composables/useChat'
+import { useQuote } from '@/composables/useQuote'
 import { useUi } from '@/composables/useUi'
 import { permissionModeLabel } from '@/lib/protocol'
 import { cn } from '@/lib/utils'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
-const { isProcessing, permissionMode, selectedModelLabel, sendMessage, interrupt, connection } = useChat()
+const { isProcessing, permissionMode, selectedModelLabel, sendMessage, interrupt, connection, currentSessionId } = useChat()
 const { offscreenPending, scrollToRequest } = useBlocks()
 const { openSettings } = useUi()
+const { quote, clearQuote } = useQuote()
 
 const text = ref('')
 const textarea = ref<HTMLTextAreaElement | null>(null)
 const composing = ref(false)
+
+// Picking a quote means the user is about to reply to it.
+watch(quote, (q) => {
+  if (q)
+    textarea.value?.focus()
+})
+watch(currentSessionId, clearQuote)
 
 // Messages sent mid-turn are queued by the server, so the button only turns
 // into "stop" while Claude is working and there is nothing typed.
@@ -41,8 +50,9 @@ function autoGrow() {
 function submit() {
   if (!canSend.value)
     return
-  sendMessage(text.value.trim())
+  sendMessage(text.value.trim(), quote.value ?? undefined)
   text.value = ''
+  clearQuote()
   nextTick(autoGrow)
 }
 
@@ -91,33 +101,48 @@ function onKeydown(e: KeyboardEvent) {
         </div>
       </div>
 
-      <div class="flex items-end gap-2 rounded-3xl border bg-card p-1.5 pl-4 shadow-xs focus-within:border-ring/60">
-        <textarea
-          ref="textarea"
-          v-model="text"
-          rows="1"
-          placeholder="Message Claude Code…"
-          enterkeyhint="send"
-          aria-label="Message"
-          class="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground"
-          @input="autoGrow"
-          @keydown="onKeydown"
-          @compositionstart="composing = true"
-          @compositionend="composing = false"
-        />
-        <button
-          type="button"
-          :aria-label="showStop ? 'Stop' : 'Send'"
-          :disabled="!showStop && !canSend"
-          :class="cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
-            showStop ? 'bg-foreground text-background' : 'bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground',
-          )"
-          @click="onButton"
-        >
-          <SquareIcon v-if="showStop" class="size-3.5 fill-current" />
-          <ArrowUpIcon v-else class="size-5" />
-        </button>
+      <div class="rounded-3xl border bg-card p-1.5 pl-4 shadow-xs focus-within:border-ring/60">
+        <div v-if="quote" class="flex items-start gap-2 pt-1.5 pb-1">
+          <div class="line-clamp-2 min-w-0 flex-1 border-l-2 border-primary/50 pl-2 text-[13px] leading-snug whitespace-pre-wrap break-words text-muted-foreground">
+            {{ quote }}
+          </div>
+          <button
+            type="button"
+            aria-label="Remove quote"
+            class="-mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+            @click="clearQuote"
+          >
+            <XIcon class="size-3.5" />
+          </button>
+        </div>
+        <div class="flex items-end gap-2">
+          <textarea
+            ref="textarea"
+            v-model="text"
+            rows="1"
+            placeholder="Message Claude Code…"
+            enterkeyhint="send"
+            aria-label="Message"
+            class="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground"
+            @input="autoGrow"
+            @keydown="onKeydown"
+            @compositionstart="composing = true"
+            @compositionend="composing = false"
+          />
+          <button
+            type="button"
+            :aria-label="showStop ? 'Stop' : 'Send'"
+            :disabled="!showStop && !canSend"
+            :class="cn(
+              'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
+              showStop ? 'bg-foreground text-background' : 'bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground',
+            )"
+            @click="onButton"
+          >
+            <SquareIcon v-if="showStop" class="size-3.5 fill-current" />
+            <ArrowUpIcon v-else class="size-5" />
+          </button>
+        </div>
       </div>
 
       <!-- Persistent info row below the input: plain small text, tap to change -->

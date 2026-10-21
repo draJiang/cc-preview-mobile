@@ -4,7 +4,7 @@ import { CheckIcon, ShieldAlertIcon, XIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useChat } from '@/composables/useChat'
-import { toolIcon, toolSummary } from '@/lib/tool-meta'
+import { toolIcon, toolLabel, toolSummary } from '@/lib/tool-meta'
 import { computed, ref } from 'vue'
 import ToolInputView from './ToolInputView.vue'
 
@@ -26,7 +26,7 @@ function respond(approve: boolean) {
   <!-- Resolved: collapse to a single status line -->
   <div v-if="!block.pending" class="flex min-h-8 items-center gap-2 text-xs text-muted-foreground">
     <component :is="icon" class="size-3.5" />
-    <span class="truncate">{{ block.toolName }} {{ summary }}</span>
+    <span class="truncate">{{ toolLabel(block.toolName) }} {{ summary }}</span>
     <span v-if="block.resolution === 'approved'" class="ml-auto flex shrink-0 items-center gap-1 text-success"><CheckIcon class="size-3.5" />Allowed</span>
     <span v-else-if="block.resolution === 'denied'" class="ml-auto flex shrink-0 items-center gap-1"><XIcon class="size-3.5" />Denied</span>
     <span v-else class="ml-auto shrink-0">Expired</span>

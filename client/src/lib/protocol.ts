@@ -23,18 +23,26 @@ export interface ImageRef {
 export type ChatItem
   = | { kind: 'system_init', cwd: string, model: string, permissionMode?: string, sessionId?: string }
     | { kind: 'system_note', text: string }
-    | { kind: 'user_text', text: string }
-    | { kind: 'assistant_text', text: string }
-    | { kind: 'thinking', text: string }
-    | { kind: 'tool_use', toolUseId: string, toolName: string, input: Record<string, unknown> }
-    | { kind: 'tool_result', toolUseId: string, content: string, isError: boolean, images?: ImageRef[] }
+    | { kind: 'user_text', text: string, quote?: string }
+    // parentToolUseId is set on messages produced by a subagent; it is the
+    // Agent/Task tool call that spawned it.
+    | { kind: 'assistant_text', text: string, parentToolUseId?: string }
+    | { kind: 'thinking', text: string, redacted?: boolean, parentToolUseId?: string }
+    | { kind: 'tool_use', toolUseId: string, toolName: string, input: Record<string, unknown>, parentToolUseId?: string }
+    | { kind: 'tool_result', toolUseId: string, content: string, isError: boolean, images?: ImageRef[], parentToolUseId?: string }
+    | { kind: 'notice', level: NoticeLevel, text: string, parentToolUseId?: string }
+    | { kind: 'compact', trigger?: 'manual' | 'auto', preTokens?: number, postTokens?: number }
+    | { kind: 'command_output', text: string }
+    | { kind: 'task_notification', toolUseId?: string, status: 'completed' | 'failed' | 'stopped', summary?: string }
     | { kind: 'permission_request', requestId: string, toolName: string, input?: Record<string, unknown>, title: string, description?: string, displayName?: string }
     | { kind: 'permission_resolved', requestId: string, approved: boolean }
     | { kind: 'ask_user_question', requestId: string, questions: Question[] }
     | { kind: 'ask_user_question_resolved', requestId: string, answers?: Record<string, Answer>, cancelled: boolean }
     | { kind: 'mode_changed', mode: string }
     | { kind: 'model_changed', model: string, label: string }
-    | { kind: 'result', isError?: boolean, resultText?: string, costUsd?: number, durationMs?: number, numTurns?: number }
+    | { kind: 'result', isError?: boolean, resultText?: string, errorText?: string, costUsd?: number, durationMs?: number, numTurns?: number }
+
+export type NoticeLevel = 'info' | 'warning' | 'error'
 
 export interface SessionSummary {
   id: string

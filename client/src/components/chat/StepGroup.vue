@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Step } from '@/lib/turns'
+import { MessageResponse } from '@/components/ai-elements/message'
 import ThinkingStep from './ThinkingStep.vue'
 import ToolStep from './ToolStep.vue'
 
@@ -10,7 +11,12 @@ defineProps<{ steps: Step[] }>()
   <div class="flex flex-col gap-1.5">
     <template v-for="step in steps" :key="step.id">
       <ToolStep v-if="step.type === 'tool'" :step="step" />
-      <ThinkingStep v-else :text="step.text" />
+      <MessageResponse
+        v-else-if="step.type === 'text'"
+        :content="step.text"
+        class="md-body px-1 text-sm leading-relaxed"
+      />
+      <ThinkingStep v-else :text="step.text" :redacted="step.redacted" />
     </template>
   </div>
 </template>

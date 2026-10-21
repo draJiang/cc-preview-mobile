@@ -7,9 +7,12 @@ import {
   FilePlusIcon,
   FolderSearchIcon,
   GlobeIcon,
+  ListChecksIcon,
   ListTodoIcon,
   MessageCircleQuestionIcon,
+  PlugIcon,
   SearchIcon,
+  SparklesIcon,
   SquareTerminalIcon,
   WrenchIcon,
 } from '@lucide/vue'
@@ -29,6 +32,12 @@ const ICONS: Record<string, Component> = {
   WebFetch: GlobeIcon,
   WebSearch: GlobeIcon,
   TodoWrite: ListTodoIcon,
+  TaskCreate: ListChecksIcon,
+  TaskUpdate: ListChecksIcon,
+  TaskList: ListChecksIcon,
+  TaskGet: ListChecksIcon,
+  ToolSearch: WrenchIcon,
+  Skill: SparklesIcon,
   Task: BotIcon,
   Agent: BotIcon,
   AskUserQuestion: MessageCircleQuestionIcon,
@@ -36,7 +45,14 @@ const ICONS: Record<string, Component> = {
 }
 
 export function toolIcon(name: string): Component {
-  return ICONS[name] ?? WrenchIcon
+  return ICONS[name] ?? (name.startsWith('mcp__') ? PlugIcon : WrenchIcon)
+}
+
+// MCP tools arrive as `mcp__<server>__<tool>`; show just the tool name (the
+// plug icon already says it's MCP). Server ids that are UUIDs aren't useful.
+export function toolLabel(name: string): string {
+  const m = /^mcp__(.+?)__(.+)$/.exec(name)
+  return m ? m[2] : name
 }
 
 function str(v: unknown): string | undefined {
@@ -77,6 +93,14 @@ export function toolSummary(name: string, input: Record<string, unknown>, cwd: s
     case 'Task':
     case 'Agent':
       return str(input.description) ?? ''
+    case 'TaskCreate':
+      return str(input.subject) ?? ''
+    case 'TaskUpdate':
+      return [str(input.status), str(input.subject) ?? `#${input.taskId}`].filter(Boolean).join(' · ')
+    case 'ToolSearch':
+      return str(input.query) ?? ''
+    case 'Skill':
+      return str(input.skill) ?? ''
     case 'AskUserQuestion':
       return 'Asking you a question'
     case 'ExitPlanMode': {
