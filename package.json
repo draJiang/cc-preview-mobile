@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "node server.js & vite",
+    "dev": "node server.js & VITE_SERVER_PORT=${PORT:-4173} vite",
     "build": "vite build",
     "prestart": "vite build",
     "start": "node server.js",

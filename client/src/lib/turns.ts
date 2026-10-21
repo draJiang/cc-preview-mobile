@@ -1,4 +1,4 @@
-import type { Answer, ChatItem, Question } from './protocol'
+import type { Answer, ChatItem, ImageRef, Question } from './protocol'
 
 export interface ToolStep {
   type: 'tool'
@@ -7,6 +7,7 @@ export interface ToolStep {
   input: Record<string, unknown>
   status: 'running' | 'done' | 'error'
   output?: string
+  images?: ImageRef[]
 }
 
 export interface ThinkingStep {
@@ -109,9 +110,10 @@ export function buildBlocks(items: ChatItem[]): Block[] {
         if (step) {
           step.status = item.isError ? 'error' : 'done'
           step.output = item.content
+          step.images = item.images
         }
         else {
-          pushStep({ type: 'tool', id: `r-${i}`, toolName: '工具结果', input: {}, status: item.isError ? 'error' : 'done', output: item.content }, i)
+          pushStep({ type: 'tool', id: `r-${i}`, toolName: '工具结果', input: {}, status: item.isError ? 'error' : 'done', output: item.content, images: item.images }, i)
         }
         break
       }

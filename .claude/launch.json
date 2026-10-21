@@ -9,6 +9,20 @@
         "export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 && npm start"
       ],
       "port": 4173
+    },
+    {
+      "name": "cc-preview-mobile-vite",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "env": {
+        "VITE_SERVER_PORT": "4173"
+      },
+      "port": 5173
     }
   ]
 }

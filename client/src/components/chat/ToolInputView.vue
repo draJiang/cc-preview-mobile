@@ -2,6 +2,7 @@
 import { CodeBlock } from '@/components/ai-elements/code-block'
 import { truncate } from '@/lib/tool-meta'
 import { computed } from 'vue'
+import PlanView from './PlanView.vue'
 
 // What a tool call is about to do, rendered for humans: a shell command, a
 // diff, or the file content being written; JSON only as the fallback. Shared
@@ -12,6 +13,9 @@ type Edit = { old_string?: unknown, new_string?: unknown }
 
 const view = computed(() => {
   const { toolName, input } = props
+  if (toolName === 'ExitPlanMode' && typeof input.plan === 'string')
+    return { kind: 'plan' as const, text: input.plan }
+
   if (toolName === 'Bash' && typeof input.command === 'string')
     return { kind: 'command' as const, text: input.command }
 
@@ -44,8 +48,9 @@ const view = computed(() => {
 </script>
 
 <template>
+  <PlanView v-if="view?.kind === 'plan'" :plan="view.text" />
   <pre
-    v-if="view?.kind === 'command'"
+    v-else-if="view?.kind === 'command'"
     class="max-h-40 overflow-auto rounded-md bg-muted/60 p-2.5 font-mono text-xs whitespace-pre-wrap break-all"
   ><span class="select-none text-muted-foreground">$ </span>{{ view.text }}</pre>
   <CodeBlock

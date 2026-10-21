@@ -18,7 +18,11 @@ const HISTORY_LIMIT = 1000;
 const DATA_DIR = path.join(__dirname, 'data', 'sessions');
 const SAVE_DEBOUNCE_MS = 400;
 
+const MEDIA_DIR = path.join(__dirname, 'data', 'media');
+const IMAGE_EXTS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+
 fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Pull-based async queue used to feed user messages into query()'s streaming
@@ -62,6 +66,38 @@ function textFromBlocks(content) {
     .filter((b) => b && b.type === 'text')
     .map((b) => b.text)
     .join('\n');
+}
+
+// Image blocks in tool results (Read on a .png, screenshot tools, MCP tools
+// returning images…) are written to data/media/<sessionId>/ and referenced
+// by URL, so session history stays small and doesn't carry base64 blobs.
+function extractImages(content, sessionId) {
+  const blocks = Array.isArray(content) ? content : content && typeof content === 'object' ? [content] : [];
+  const images = [];
+  for (const block of blocks) {
+    if (block?.type !== 'image' || !block.source) continue;
+    const { source } = block;
+    if (source.type === 'url' && typeof source.url === 'string') {
+      images.push({ url: source.url, mediaType: source.media_type });
+    } else if (source.type === 'base64' && typeof source.data === 'string') {
+      const ext = IMAGE_EXTS[source.media_type];
+      if (!ext) continue;
+      try {
+        const buf = Buffer.from(source.data, 'base64');
+        const name = `${crypto.createHash('sha1').update(buf).digest('hex')}.${ext}`;
+        const dir = path.join(MEDIA_DIR, sessionId);
+        const file = path.join(dir, name);
+        if (!fs.existsSync(file)) {
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(file, buf);
+        }
+        images.push({ url: `/media/${sessionId}/${name}`, mediaType: source.media_type });
+      } catch (err) {
+        console.error('保存图片失败：', err.message);
+      }
+    }
+  }
+  return images;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +167,7 @@ class ChatSession {
 
   deleteFile() {
     fs.rm(path.join(DATA_DIR, `${this.id}.json`), { force: true }, () => {});
+    fs.rm(path.join(MEDIA_DIR, this.id), { recursive: true, force: true }, () => {});
   }
 
   ensureStarted() {
@@ -207,12 +244,15 @@ class ChatSession {
         if (!Array.isArray(blocks)) break;
         for (const block of blocks) {
           if (block.type === 'tool_result') {
-            this.emit({
+            const item = {
               kind: 'tool_result',
               toolUseId: block.tool_use_id,
               content: textFromBlocks(block.content),
               isError: !!block.is_error,
-            });
+            };
+            const images = extractImages(block.content, this.id);
+            if (images.length) item.images = images;
+            this.emit(item);
           }
         }
         break;
@@ -633,6 +673,7 @@ loadPersistedSessions();
 const app = express();
 // The Vue client is built into dist/ by `npm run build` (run automatically before `npm start`).
 app.use(express.static(path.join(__dirname, 'dist')));
+app.use('/media', express.static(MEDIA_DIR, { immutable: true, maxAge: '1y' }));
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   const addrs = Object.values(os.networkInterfaces())

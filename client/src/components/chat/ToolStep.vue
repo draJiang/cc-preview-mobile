@@ -30,6 +30,11 @@ const output = computed(() => truncate(props.step.output, 4000))
       <CircleXIcon v-else-if="step.status === 'error'" class="size-4 shrink-0 text-destructive" aria-label="失败" />
       <ChevronRightIcon class="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
     </CollapsibleTrigger>
+    <div v-if="step.images?.length" class="flex flex-wrap gap-2 px-3 pb-2.5">
+      <a v-for="img in step.images" :key="img.url" :href="img.url" target="_blank" rel="noopener">
+        <img :src="img.url" alt="工具返回的图片" loading="lazy" class="max-h-80 w-auto max-w-full rounded-md border object-contain">
+      </a>
+    </div>
     <ToolContent class="space-y-2 border-t px-3 py-2.5">
       <ToolInputView :tool-name="step.toolName" :input="step.input" />
       <template v-if="output">

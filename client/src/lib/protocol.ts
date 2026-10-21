@@ -15,6 +15,11 @@ export interface Question {
 
 export type Answer = string | string[]
 
+export interface ImageRef {
+  url: string
+  mediaType?: string
+}
+
 export type ChatItem
   = | { kind: 'system_init', cwd: string, model: string, permissionMode?: string, sessionId?: string }
     | { kind: 'system_note', text: string }
@@ -22,7 +27,7 @@ export type ChatItem
     | { kind: 'assistant_text', text: string }
     | { kind: 'thinking', text: string }
     | { kind: 'tool_use', toolUseId: string, toolName: string, input: Record<string, unknown> }
-    | { kind: 'tool_result', toolUseId: string, content: string, isError: boolean }
+    | { kind: 'tool_result', toolUseId: string, content: string, isError: boolean, images?: ImageRef[] }
     | { kind: 'permission_request', requestId: string, toolName: string, input?: Record<string, unknown>, title: string, description?: string, displayName?: string }
     | { kind: 'permission_resolved', requestId: string, approved: boolean }
     | { kind: 'ask_user_question', requestId: string, questions: Question[] }

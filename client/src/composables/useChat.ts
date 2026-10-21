@@ -115,7 +115,9 @@ function handleMessage(msg: ServerMessage) {
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  ws = new WebSocket(`${proto}://${location.host}/ws`)
+  // The Vite dev server only serves the client; talk to the backend directly.
+  const host = import.meta.env.DEV ? `${location.hostname}:${import.meta.env.VITE_SERVER_PORT}` : location.host
+  ws = new WebSocket(`${proto}://${host}/ws`)
   connection.value = 'connecting'
   ws.onopen = () => {
     connection.value = 'open'

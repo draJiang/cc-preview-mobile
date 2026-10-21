@@ -3,7 +3,10 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
-const SERVER_PORT = process.env.PORT || 4173
+// In dev the client connects to the backend's WebSocket directly (see
+// useChat.ts) rather than through a Vite proxy. VITE_SERVER_PORT is the
+// backend's port; `npm run dev` sets it from PORT.
+process.env.VITE_SERVER_PORT ||= '4173'
 
 export default defineConfig({
   root: 'client',
@@ -14,6 +17,7 @@ export default defineConfig({
   build: { outDir: '../dist', emptyOutDir: true },
   server: {
     host: '0.0.0.0',
-    proxy: { '/ws': { target: `ws://localhost:${SERVER_PORT}`, ws: true } },
+    // Images from tool results are served by the backend under /media.
+    proxy: { '/media': `http://localhost:${process.env.VITE_SERVER_PORT}` },
   },
 })

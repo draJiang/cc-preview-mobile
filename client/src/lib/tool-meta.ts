@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import {
   BotIcon,
+  ClipboardListIcon,
   FileEditIcon,
   FileIcon,
   FilePlusIcon,
@@ -31,6 +32,7 @@ const ICONS: Record<string, Component> = {
   Task: BotIcon,
   Agent: BotIcon,
   AskUserQuestion: MessageCircleQuestionIcon,
+  ExitPlanMode: ClipboardListIcon,
 }
 
 export function toolIcon(name: string): Component {
@@ -77,6 +79,12 @@ export function toolSummary(name: string, input: Record<string, unknown>, cwd: s
       return str(input.description) ?? ''
     case 'AskUserQuestion':
       return '向你提问'
+    case 'ExitPlanMode': {
+      // First Markdown heading, or the first non-empty line, as the plan title.
+      const lines = (str(input.plan) ?? '').split('\n').map(l => l.trim()).filter(Boolean)
+      const title = lines.find(l => l.startsWith('#')) ?? lines[0] ?? ''
+      return title.replace(/^#+\s*/, '')
+    }
     default: {
       const first = Object.values(input).find(v => typeof v === 'string' && v.trim())
       return first ? firstLine(first as string) : ''
