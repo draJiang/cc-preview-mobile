@@ -27,7 +27,7 @@ watch(connection, (state) => {
       <button
         type="button"
         class="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-accent"
-        aria-label="会话列表"
+        aria-label="Sessions"
         @click="sessionsOpen = true"
       >
         <MenuIcon class="size-5" />
@@ -35,7 +35,7 @@ watch(connection, (state) => {
       <button
         type="button"
         class="flex min-w-0 flex-1 flex-col items-center px-2"
-        aria-label="切换会话"
+        aria-label="Switch session"
         @click="sessionsOpen = true"
       >
         <span class="flex max-w-full items-center gap-1 text-[15px] font-semibold">
@@ -47,7 +47,7 @@ watch(connection, (state) => {
       <button
         type="button"
         class="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-accent"
-        aria-label="设置"
+        aria-label="Settings"
         @click="openSettings()"
       >
         <Settings2Icon class="size-5" />
@@ -59,7 +59,7 @@ watch(connection, (state) => {
       class="flex items-center justify-center gap-2 bg-destructive/10 py-1.5 text-xs text-destructive"
     >
       <WifiOffIcon class="size-3.5" />
-      连接已断开，正在重连…
+      Disconnected. Reconnecting…
     </div>
   </header>
 </template>

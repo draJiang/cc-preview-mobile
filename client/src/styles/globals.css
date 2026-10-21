@@ -92,6 +92,18 @@
   #app {
     height: 100%;
   }
+  html {
+    /* Also on <html>: browsers read the viewport's value from the root, and
+       this is what disables pull-to-refresh / rubber-band on the whole page. */
+    overscroll-behavior: none;
+  }
+  /* The message list scroller (rendered inside vue-stick-to-bottom) must not
+     chain scroll to the page when it is at its top/bottom edge or too short
+     to scroll — otherwise a downward drag pulls the whole page instead. */
+  [role="log"] [style*="overflow: auto"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-size: 15px;

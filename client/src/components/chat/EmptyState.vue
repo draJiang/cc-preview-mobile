@@ -9,9 +9,9 @@ const { cwd, sendMessage } = useChat()
 const projectName = computed(() => cwd.value.split('/').filter(Boolean).pop() || '~')
 
 const suggestions = [
-  '介绍一下这个项目的结构',
-  '看看最近的 git 改动',
-  '运行测试并修复失败的用例',
+  'Give me an overview of this project',
+  'Review my recent git changes',
+  'Run the tests and fix any failures',
 ]
 </script>
 
@@ -25,7 +25,7 @@ const suggestions = [
         {{ projectName }}
       </div>
       <div class="max-w-72 truncate font-mono text-xs text-muted-foreground">
-        {{ cwd || '连接中…' }}
+        {{ cwd || 'Connecting…' }}
       </div>
     </div>
     <div class="flex w-full max-w-xs flex-col gap-2">

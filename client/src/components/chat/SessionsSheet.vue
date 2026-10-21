@@ -86,15 +86,15 @@ function confirmClose() {
       <!-- Session list -->
       <template v-if="view === 'list'">
         <SheetHeader class="px-4 pt-4 pb-2">
-          <SheetTitle>会话</SheetTitle>
+          <SheetTitle>Sessions</SheetTitle>
           <SheetDescription class="sr-only">
-            切换或新建会话
+            Switch or start a session
           </SheetDescription>
         </SheetHeader>
         <div class="px-3 pb-2">
           <Button variant="outline" class="h-11 w-full justify-start gap-2" @click="view = 'new'">
             <PlusIcon class="size-4" />
-            新建会话
+            New session
           </Button>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -118,14 +118,14 @@ function confirmClose() {
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
-                  <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground" :aria-label="`${s.title} 的更多操作`">
+                  <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground" :aria-label="`More actions for ${s.title}`">
                     <EllipsisIcon class="size-4" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem variant="destructive" class="min-h-10" @select="askClose(s)">
                     <Trash2Icon class="size-4" />
-                    关闭会话
+                    Close session
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -137,22 +137,22 @@ function confirmClose() {
       <!-- New session -->
       <template v-else>
         <SheetHeader class="flex-row items-center gap-1 px-2 pt-3 pb-2">
-          <button type="button" class="flex size-10 items-center justify-center rounded-full hover:bg-accent" aria-label="返回" @click="view = 'list'">
+          <button type="button" class="flex size-10 items-center justify-center rounded-full hover:bg-accent" aria-label="Back" @click="view = 'list'">
             <ChevronLeftIcon class="size-5" />
           </button>
-          <SheetTitle>新建会话</SheetTitle>
+          <SheetTitle>New session</SheetTitle>
           <SheetDescription class="sr-only">
-            选择项目目录
+            Choose a project directory
           </SheetDescription>
         </SheetHeader>
         <div class="flex gap-2 px-4 pb-3">
-          <Input v-model="newPath" placeholder="项目路径，留空用默认目录" class="h-11 font-mono text-sm" @keydown.enter="create(newPath)" />
+          <Input v-model="newPath" placeholder="Project path (blank for default)" class="h-11 font-mono text-sm" @keydown.enter="create(newPath)" />
           <Button class="h-11 shrink-0" @click="create(newPath)">
-            创建
+            Create
           </Button>
         </div>
         <div class="px-4 pb-1 text-xs text-muted-foreground">
-          最近项目
+          Recent projects
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           <button
@@ -170,7 +170,7 @@ function confirmClose() {
             <span class="shrink-0 text-xs text-muted-foreground">{{ relativeTime(p.lastUsed) }}</span>
           </button>
           <div v-if="!filteredPaths.length" class="px-2 py-6 text-center text-sm text-muted-foreground">
-            {{ projectPaths.length ? '没有匹配的项目，点"创建"使用输入的路径' : '没有找到最近使用的项目' }}
+            {{ projectPaths.length ? 'No matching projects. Tap "Create" to use the entered path' : 'No recent projects found' }}
           </div>
         </div>
       </template>
@@ -180,15 +180,15 @@ function confirmClose() {
   <AlertDialog v-model:open="confirmOpen">
     <AlertDialogContent>
       <AlertDialogHeader>
-        <AlertDialogTitle>关闭这个会话？</AlertDialogTitle>
+        <AlertDialogTitle>Close this session?</AlertDialogTitle>
         <AlertDialogDescription>
-          “{{ closing?.title }}”的聊天记录会被删除，且无法恢复。
+          The chat history of “{{ closing?.title }}” will be deleted and can't be recovered.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel>取消</AlertDialogCancel>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
         <AlertDialogAction class="bg-destructive text-white hover:bg-destructive/90" @click="confirmClose">
-          关闭会话
+          Close session
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

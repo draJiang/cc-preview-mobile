@@ -27,9 +27,9 @@ function respond(approve: boolean) {
   <div v-if="!block.pending" class="flex min-h-8 items-center gap-2 text-xs text-muted-foreground">
     <component :is="icon" class="size-3.5" />
     <span class="truncate">{{ block.toolName }} {{ summary }}</span>
-    <span v-if="block.resolution === 'approved'" class="ml-auto flex shrink-0 items-center gap-1 text-success"><CheckIcon class="size-3.5" />已允许</span>
-    <span v-else-if="block.resolution === 'denied'" class="ml-auto flex shrink-0 items-center gap-1"><XIcon class="size-3.5" />已拒绝</span>
-    <span v-else class="ml-auto shrink-0">已失效</span>
+    <span v-if="block.resolution === 'approved'" class="ml-auto flex shrink-0 items-center gap-1 text-success"><CheckIcon class="size-3.5" />Allowed</span>
+    <span v-else-if="block.resolution === 'denied'" class="ml-auto flex shrink-0 items-center gap-1"><XIcon class="size-3.5" />Denied</span>
+    <span v-else class="ml-auto shrink-0">Expired</span>
   </div>
 
   <div
@@ -50,15 +50,15 @@ function respond(approve: boolean) {
     </div>
     <ToolInputView :tool-name="block.toolName" :input="block.input ?? {}" />
     <label class="flex min-h-9 items-center justify-between gap-3 text-sm">
-      <span class="text-muted-foreground">本次会话始终允许</span>
+      <span class="text-muted-foreground">Always allow this session</span>
       <Switch v-model="alwaysAllow" />
     </label>
     <div class="grid grid-cols-2 gap-2">
       <Button variant="outline" class="h-11" :disabled="!!submitting" @click="respond(false)">
-        拒绝
+        Deny
       </Button>
       <Button class="h-11" :disabled="!!submitting" @click="respond(true)">
-        允许
+        Allow
       </Button>
     </div>
   </div>

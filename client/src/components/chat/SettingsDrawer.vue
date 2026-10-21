@@ -27,7 +27,7 @@ import { toast } from 'vue-sonner'
 const chat = useChat()
 const { cwd, permissionMode, modelOptions, selectedModel, selectedModelLabel, usage, connection, currentSessionId, currentSession } = chat
 const prefs = usePrefs()
-const { settingsOpen, settingsPage } = useUi()
+const { settingsOpen, settingsPage, settingsDirect } = useUi()
 
 const confirmClose = ref(false)
 const host = location.host
@@ -43,19 +43,19 @@ watch(settingsOpen, (open) => {
     chat.refreshUsage()
 })
 
-const title = computed(() => ({ main: '设置', mode: '权限模式', model: '模型' })[settingsPage.value])
+const title = computed(() => ({ main: 'Settings', mode: 'Permission mode', model: 'Model' })[settingsPage.value])
 
 const themes: { value: Theme, label: string, icon: typeof SunIcon }[] = [
-  { value: 'system', label: '跟随系统', icon: MonitorIcon },
-  { value: 'light', label: '浅色', icon: SunIcon },
-  { value: 'dark', label: '深色', icon: MoonIcon },
+  { value: 'system', label: 'System', icon: MonitorIcon },
+  { value: 'light', label: 'Light', icon: SunIcon },
+  { value: 'dark', label: 'Dark', icon: MoonIcon },
 ]
 
 function usageRow(win?: UsageWindow) {
   const used = win?.utilization
   const has = typeof used === 'number'
   const pct = has ? Math.min(100, Math.max(0, used)) : 0
-  const meta = [has ? `剩余 ${Math.round(100 - used)}%` : '无数据']
+  const meta = [has ? `${Math.round(100 - used)}% left` : 'No data']
   if (win?.resets_at)
     meta.push(formatResetTime(win.resets_at))
   return { pct, high: pct >= 90, meta: meta.join(' · ') }
@@ -66,15 +66,22 @@ const usageRows = computed(() => {
   if (!usage.value.data?.rate_limits_available || !limits)
     return []
   return [
-    { label: '5 小时限额', ...usageRow(limits.five_hour) },
-    { label: '每周限额', ...usageRow(limits.seven_day) },
+    { label: '5-hour limit', ...usageRow(limits.five_hour) },
+    { label: 'Weekly limit', ...usageRow(limits.seven_day) },
   ]
 })
+
+function leaveSubPage() {
+  if (settingsDirect.value)
+    settingsOpen.value = false
+  else
+    settingsPage.value = 'main'
+}
 
 function pickMode(mode: string) {
   if (mode !== permissionMode.value)
     chat.setPermissionMode(mode)
-  settingsPage.value = 'main'
+  leaveSubPage()
 }
 
 // The SDK lists the current aliases (default/opus/sonnet/...) followed by
@@ -91,16 +98,16 @@ watch(() => settingsPage.value, (page) => {
 function pickModel(model: string) {
   if (model !== selectedModel.value)
     chat.setModel(model)
-  settingsPage.value = 'main'
+  leaveSubPage()
 }
 
 async function copyCwd() {
   try {
     await navigator.clipboard.writeText(cwd.value)
-    toast.success('已复制路径')
+    toast.success('Path copied')
   }
   catch {
-    toast.error('复制失败')
+    toast.error('Copy failed')
   }
 }
 
@@ -120,7 +127,7 @@ function closeCurrent() {
           v-if="settingsPage !== 'main'"
           type="button"
           class="absolute left-2 flex size-10 items-center justify-center rounded-full hover:bg-accent"
-          aria-label="返回"
+          aria-label="Back"
           @click="settingsPage = 'main'"
         >
           <ChevronLeftIcon class="size-5" />
@@ -129,7 +136,7 @@ function closeCurrent() {
           {{ title }}
         </DrawerTitle>
         <DrawerDescription class="sr-only">
-          会话与显示设置
+          Session and display settings
         </DrawerDescription>
       </div>
 
@@ -138,21 +145,21 @@ function closeCurrent() {
         <div v-if="settingsPage === 'main'" class="flex flex-col gap-6">
           <section>
             <h3 class="settings-label">
-              当前会话
+              Current session
             </h3>
             <div class="settings-group">
               <button type="button" class="settings-row" @click="settingsPage = 'mode'">
-                <span>权限模式</span>
+                <span>Permission mode</span>
                 <span class="settings-value">{{ permissionModeLabel(permissionMode) }}</span>
                 <ChevronRightIcon class="size-4 text-muted-foreground" />
               </button>
               <button type="button" class="settings-row" @click="settingsPage = 'model'">
-                <span>模型</span>
+                <span>Model</span>
                 <span class="settings-value">{{ selectedModelLabel }}</span>
                 <ChevronRightIcon class="size-4 text-muted-foreground" />
               </button>
-              <button type="button" class="settings-row" aria-label="复制工作目录" @click="copyCwd">
-                <span class="shrink-0">工作目录</span>
+              <button type="button" class="settings-row" aria-label="Copy working directory" @click="copyCwd">
+                <span class="shrink-0">Working directory</span>
                 <span class="settings-value font-mono text-xs">{{ shortCwd }}</span>
                 <CopyIcon class="size-4 shrink-0 text-muted-foreground" />
               </button>
@@ -161,17 +168,17 @@ function closeCurrent() {
 
           <section>
             <h3 class="settings-label">
-              用量
+              Usage
             </h3>
             <div class="settings-group gap-4 p-4">
               <div v-if="usage.loading && !usage.data" class="text-sm text-muted-foreground">
-                加载中…
+                Loading…
               </div>
               <div v-else-if="usage.error" class="text-sm text-destructive">
                 {{ usage.error }}
               </div>
               <div v-else-if="!usageRows.length" class="text-sm text-muted-foreground">
-                当前账号没有套餐限额数据（可能按 API Key 计费）
+                No plan limit data for this account (possibly billed via API key)
               </div>
               <div v-for="row in usageRows" :key="row.label" class="flex flex-col gap-1.5">
                 <div class="text-sm font-medium">
@@ -187,7 +194,7 @@ function closeCurrent() {
 
           <section>
             <h3 class="settings-label">
-              显示
+              Display
             </h3>
             <div class="settings-group">
               <div class="grid grid-cols-3 gap-1.5 p-1.5">
@@ -204,11 +211,11 @@ function closeCurrent() {
                 </button>
               </div>
               <label class="settings-row">
-                <span>默认展开工具详情</span>
+                <span>Expand tool details by default</span>
                 <Switch v-model="prefs.expandTools" class="ml-auto" />
               </label>
               <label class="settings-row">
-                <span>默认展开思考过程</span>
+                <span>Expand thinking by default</span>
                 <Switch v-model="prefs.expandThinking" class="ml-auto" />
               </label>
             </div>
@@ -216,17 +223,17 @@ function closeCurrent() {
 
           <section>
             <h3 class="settings-label">
-              连接
+              Connection
             </h3>
             <div class="settings-group">
               <div class="settings-row">
-                <span>状态</span>
+                <span>Status</span>
                 <span :class="cn('settings-value', connection === 'open' ? 'text-success' : 'text-destructive')">
-                  {{ connection === 'open' ? '已连接' : connection === 'connecting' ? '连接中…' : '已断开' }}
+                  {{ connection === 'open' ? 'Connected' : connection === 'connecting' ? 'Connecting…' : 'Disconnected' }}
                 </span>
               </div>
               <div class="settings-row">
-                <span>服务器</span>
+                <span>Server</span>
                 <span class="settings-value font-mono text-xs">{{ host }}</span>
               </div>
             </div>
@@ -235,7 +242,7 @@ function closeCurrent() {
           <section>
             <div class="settings-group">
               <button type="button" class="settings-row justify-center text-destructive" :disabled="!currentSession" @click="confirmClose = true">
-                关闭当前会话
+                Close current session
               </button>
             </div>
           </section>
@@ -262,7 +269,7 @@ function closeCurrent() {
 
         <!-- Model -->
         <div v-else class="flex flex-col gap-3">
-          <div class="settings-group" role="radiogroup" aria-label="模型">
+          <div class="settings-group" role="radiogroup" aria-label="Model">
             <button
               v-for="m in mainModels"
               :key="m.value"
@@ -286,10 +293,10 @@ function closeCurrent() {
               :aria-expanded="showOlder"
               @click="showOlder = !showOlder"
             >
-              更早的模型（{{ olderModels.length }}）
+              Older models ({{ olderModels.length }})
               <ChevronRightIcon :class="cn('size-4 transition-transform', showOlder && 'rotate-90')" />
             </button>
-            <div v-if="showOlder" class="settings-group" role="radiogroup" aria-label="更早的模型">
+            <div v-if="showOlder" class="settings-group" role="radiogroup" aria-label="Older models">
               <button
                 v-for="m in olderModels"
                 :key="m.value"
@@ -312,15 +319,15 @@ function closeCurrent() {
   <AlertDialog v-model:open="confirmClose">
     <AlertDialogContent>
       <AlertDialogHeader>
-        <AlertDialogTitle>关闭当前会话？</AlertDialogTitle>
+        <AlertDialogTitle>Close current session?</AlertDialogTitle>
         <AlertDialogDescription>
-          “{{ currentSession?.title }}”的聊天记录会被删除，且无法恢复。
+          The chat history of “{{ currentSession?.title }}” will be deleted and can't be recovered.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel>取消</AlertDialogCancel>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
         <AlertDialogAction class="bg-destructive text-white hover:bg-destructive/90" @click="closeCurrent">
-          关闭会话
+          Close session
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

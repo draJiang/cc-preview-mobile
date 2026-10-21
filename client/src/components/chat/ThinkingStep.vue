@@ -14,7 +14,7 @@ const preview = computed(() => props.text.replace(/\s+/g, ' ').trim())
   <Reasoning :default-open="prefs.expandThinking" class="group mb-0">
     <ReasoningTrigger class="min-h-9 py-1">
       <BrainIcon class="size-4 shrink-0" />
-      <span class="shrink-0">思考过程</span>
+      <span class="shrink-0">Thinking</span>
       <span class="min-w-0 flex-1 truncate text-left text-xs opacity-70 group-data-[state=open]:invisible">{{ preview }}</span>
       <ChevronRightIcon class="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
     </ReasoningTrigger>

@@ -93,7 +93,7 @@ function extractImages(content, sessionId) {
         }
         images.push({ url: `/media/${sessionId}/${name}`, mediaType: source.media_type });
       } catch (err) {
-        console.error('保存图片失败：', err.message);
+        console.error('Failed to save image:', err.message);
       }
     }
   }
@@ -161,7 +161,7 @@ class ChatSession {
       history: this.history,
     };
     fs.writeFile(path.join(DATA_DIR, `${this.id}.json`), JSON.stringify(data), (err) => {
-      if (err) console.error(`保存 session ${this.id} 失败：`, err.message);
+      if (err) console.error(`Failed to save session ${this.id}:`, err.message);
     });
   }
 
@@ -215,7 +215,7 @@ class ChatSession {
         } else if (message.subtype === 'permission_denied') {
           this.emit({
             kind: 'system_note',
-            text: `权限被拒绝：${message.tool_name} — ${message.message}`,
+            text: `Permission denied: ${message.tool_name} — ${message.message}`,
           });
         }
         break;
@@ -286,7 +286,7 @@ class ChatSession {
       const requestId = opts.requestId;
       const timeoutHandle = setTimeout(() => {
         this.pendingPermissions.delete(requestId);
-        this.emit({ kind: 'system_note', text: `权限请求超时，已自动拒绝：${toolName}` });
+        this.emit({ kind: 'system_note', text: `Permission request timed out, auto-denied: ${toolName}` });
         resolve({ behavior: 'deny', message: 'Timed out waiting for approval from mobile client.' });
       }, PERMISSION_TIMEOUT_MS);
 
@@ -297,7 +297,7 @@ class ChatSession {
         requestId,
         toolName,
         input,
-        title: opts.title || `Claude 想要使用 ${toolName}`,
+        title: opts.title || `Claude wants to use ${toolName}`,
         description: opts.description,
         displayName: opts.displayName || toolName,
       });
@@ -309,7 +309,7 @@ class ChatSession {
       const requestId = opts.requestId;
       const timeoutHandle = setTimeout(() => {
         this.pendingPermissions.delete(requestId);
-        this.emit({ kind: 'system_note', text: '澄清问题超时，已自动跳过。' });
+        this.emit({ kind: 'system_note', text: 'Question timed out, skipped automatically.' });
         resolve({ behavior: 'deny', message: 'Timed out waiting for the user to answer on the mobile client.' });
       }, PERMISSION_TIMEOUT_MS);
 
@@ -332,7 +332,7 @@ class ChatSession {
     this.emit({ kind: 'ask_user_question_resolved', requestId, answers, cancelled: !!cancel });
 
     if (cancel) {
-      pending.resolve({ behavior: 'deny', message: '用户在手机上跳过了这个问题。' });
+      pending.resolve({ behavior: 'deny', message: 'The user skipped this question on their phone.' });
     } else {
       pending.resolve({
         behavior: 'allow',
@@ -343,7 +343,7 @@ class ChatSession {
 
   // Approving ExitPlanMode is supposed to leave plan mode, but the SDK
   // doesn't do that automatically — the host has to flip the mode itself
-  // (see anthropics/claude-code#15755). Without this, the "允许" button
+  // (see anthropics/claude-code#15755). Without this, the "Allow" button
   // resolves the tool call but the session stays in `plan`, so every
   // following action still needs manual approval.
   //
@@ -352,20 +352,20 @@ class ChatSession {
   // reporting a mode that was never really applied.
   async changeMode(mode) {
     if (!this.activeQuery?.setPermissionMode) {
-      this.emit({ kind: 'system_note', text: `权限模式切换失败（会话尚未就绪）：${mode}` });
+      this.emit({ kind: 'system_note', text: `Failed to switch permission mode (session not ready): ${mode}` });
       return false;
     }
     try {
       await this.activeQuery.setPermissionMode(mode);
       this.permissionMode = mode;
-      this.emit({ kind: 'system_note', text: `权限模式已切换为：${mode}` });
+      this.emit({ kind: 'system_note', text: `Permission mode changed to: ${mode}` });
       this.emit({ kind: 'mode_changed', mode });
       return true;
     } catch (err) {
       // The switch didn't actually take — tell the user, and re-sync every
       // client's mode selector back to whatever is really still active
       // instead of leaving it showing the mode that failed to apply.
-      this.emit({ kind: 'system_note', text: `切换到 ${mode} 模式失败：${err?.message || err}` });
+      this.emit({ kind: 'system_note', text: `Failed to switch to ${mode} mode: ${err?.message || err}` });
       this.emit({ kind: 'mode_changed', mode: this.permissionMode });
       return false;
     }
@@ -373,7 +373,7 @@ class ChatSession {
 
   async changeModel(model) {
     if (!this.activeQuery?.setModel) {
-      this.emit({ kind: 'system_note', text: `模型切换失败（会话尚未就绪）：${model}` });
+      this.emit({ kind: 'system_note', text: `Failed to switch model (session not ready): ${model}` });
       return;
     }
     // 'default' is the picker's "use the recommended model" row; the SDK
@@ -383,10 +383,10 @@ class ChatSession {
       await this.activeQuery.setModel(next ?? undefined);
       this.model = next;
       const label = this.modelLabel(next);
-      this.emit({ kind: 'system_note', text: `模型已切换为：${label}` });
+      this.emit({ kind: 'system_note', text: `Model changed to: ${label}` });
       this.emit({ kind: 'model_changed', model: next || 'default', label });
     } catch (err) {
-      this.emit({ kind: 'system_note', text: `切换到 ${model} 失败：${err?.message || err}` });
+      this.emit({ kind: 'system_note', text: `Failed to switch to ${model}: ${err?.message || err}` });
       this.emit({ kind: 'model_changed', model: this.model || 'default', label: this.modelLabel(this.model) });
     }
   }
@@ -404,7 +404,7 @@ class ChatSession {
         broadcastModels();
       }
     } catch (err) {
-      console.error('获取模型列表失败：', err?.message || err);
+      console.error('Failed to fetch model list:', err?.message || err);
     }
   }
 
@@ -435,7 +435,7 @@ class ChatSession {
       }
       pending.resolve(result);
     } else {
-      pending.resolve({ behavior: 'deny', message: '用户在手机上拒绝了该操作。' });
+      pending.resolve({ behavior: 'deny', message: 'The user denied this action on their phone.' });
     }
   }
 
@@ -457,7 +457,7 @@ class ChatSession {
       }
     } catch (err) {
       this.status = 'error';
-      this.emit({ kind: 'system_note', text: `会话出错：${err?.message || err}` });
+      this.emit({ kind: 'system_note', text: `Session error: ${err?.message || err}` });
       broadcastSessionList();
     }
   }
@@ -645,11 +645,11 @@ function loadPersistedSessions() {
       const session = new ChatSession(data.cwd, data);
       sessions.set(session.id, session);
     } catch (err) {
-      console.error(`读取 session 文件 ${file} 失败：`, err.message);
+      console.error(`Failed to read session file ${file}:`, err.message);
     }
   }
   if (sessions.size > 0) {
-    console.log(`已恢复 ${sessions.size} 个历史 session。`);
+    console.log(`Restored ${sessions.size} past sessions.`);
   }
 }
 
@@ -685,7 +685,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Default project directory: ${DEFAULT_PROJECT_DIR}`);
   console.log(`Local:   http://localhost:${PORT}`);
   for (const addr of addrs) {
-    console.log(`Network: http://${addr}:${PORT}   <-- 用手机在同一 WiFi 下打开这个`);
+    console.log(`Network: http://${addr}:${PORT}   <-- open this on your phone (same WiFi)`);
   }
   console.log('');
 });
@@ -754,7 +754,7 @@ wss.on('connection', (ws) => {
       const session = currentSession();
       const usageFn = session?.activeQuery?.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
       if (typeof usageFn !== 'function') {
-        ws.send(JSON.stringify({ type: 'usage_error', message: '当前 SDK 版本不支持获取用量信息' }));
+        ws.send(JSON.stringify({ type: 'usage_error', message: 'This SDK version does not support fetching usage info' }));
         return;
       }
       usageFn
@@ -790,7 +790,7 @@ function flushAndExit() {
         }),
       );
     } catch (err) {
-      console.error(`退出前保存 session ${session.id} 失败：`, err.message);
+      console.error(`Failed to save session ${session.id} on exit:`, err.message);
     }
   }
   process.exit(0);

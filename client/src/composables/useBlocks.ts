@@ -7,7 +7,7 @@ const { items } = useChat()
 
 const blocks = computed(() => buildBlocks(items.value))
 
-// Requests still waiting for the user; drives the "待处理" bar above the composer.
+// Requests still waiting for the user; drives the "Pending" bar above the composer.
 const pending = computed(() =>
   blocks.value.filter((b): b is PermissionBlock | QuestionBlock =>
     (b.type === 'permission' || b.type === 'question') && b.pending),

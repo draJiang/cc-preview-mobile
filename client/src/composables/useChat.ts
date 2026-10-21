@@ -1,6 +1,7 @@
 import type { Answer, ChatItem, ModelInfo, ProjectPath, ServerMessage, SessionSummary, UsageData } from '@/lib/protocol'
 import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { toast } from 'vue-sonner'
+import { usePrefs } from './usePrefs'
 
 // One WebSocket connection per page, shared by every component through
 // module-level state (ported from the old public/app.js).
@@ -25,7 +26,7 @@ const usage = ref<{ loading: boolean, data: UsageData | null, error: string | nu
 let ws: WebSocket | null = null
 let started = false
 // Values to roll back to if the server rejects an optimistic change without
-// echoing mode_changed / model_changed (e.g. "会话尚未就绪").
+// echoing mode_changed / model_changed (e.g. "session not ready").
 let modeBeforeChange: string | null = null
 let modelBeforeChange: string | null = null
 
@@ -60,15 +61,15 @@ function applyItem(item: ChatItem, live: boolean) {
     case 'system_note':
       if (!live)
         break
-      if (item.text.startsWith('权限模式切换失败') && modeBeforeChange !== null) {
+      if (item.text.startsWith('Failed to switch permission mode') && modeBeforeChange !== null) {
         permissionMode.value = modeBeforeChange
         modeBeforeChange = null
       }
-      if (item.text.startsWith('模型切换失败') && modelBeforeChange !== null) {
+      if (item.text.startsWith('Failed to switch model') && modelBeforeChange !== null) {
         currentModel.value = modelBeforeChange
         modelBeforeChange = null
       }
-      if (/失败|出错|超时/.test(item.text))
+      if (/fail|error|timed out/i.test(item.text))
         toast.error(item.text)
       break
   }
@@ -84,6 +85,18 @@ function handleMessage(msg: ServerMessage) {
       permissionMode.value = 'default'
       for (const item of msg.items) applyItem(item, false)
       items.value = msg.items
+      // Brand-new session: restore the last model / permission mode the user picked.
+      if (!msg.items.some(i => i.kind === 'user_text')) {
+        const prefs = usePrefs()
+        if (prefs.lastMode && prefs.lastMode !== 'default') {
+          permissionMode.value = prefs.lastMode
+          send({ type: 'set_permission_mode', mode: prefs.lastMode })
+        }
+        if (prefs.lastModel && prefs.lastModel !== 'default') {
+          currentModel.value = prefs.lastModel
+          send({ type: 'set_model', model: prefs.lastModel })
+        }
+      }
       break
     case 'item':
       if (msg.sessionId !== currentSessionId.value)
@@ -137,7 +150,7 @@ const cwd = computed(() => initCwd.value || currentSession.value?.cwd || '')
 // A persisted explicit id (e.g. 'claude-opus-5-5') may be covered by an alias
 // row ('opus'); otherwise it is shown as its own entry.
 const modelOptions = computed<ModelInfo[]>(() => {
-  const list = models.value.length ? [...models.value] : [{ value: 'default', displayName: '默认模型' }]
+  const list = models.value.length ? [...models.value] : [{ value: 'default', displayName: 'Default model' }]
   if (!list.some(m => m.value === currentModel.value) && !list.some(m => m.resolvedModel === currentModel.value))
     list.push({ value: currentModel.value, displayName: currentModel.value })
   return list
@@ -182,11 +195,13 @@ export function useChat() {
       send({ type: 'ask_user_question_response', requestId, cancel: true }),
     setPermissionMode: (mode: string) => {
       modeBeforeChange = permissionMode.value
+      usePrefs().lastMode = mode
       permissionMode.value = mode // optimistic; the server sends mode_changed back (or the old mode on failure)
       send({ type: 'set_permission_mode', mode })
     },
     setModel: (model: string) => {
       modelBeforeChange = currentModel.value
+      usePrefs().lastModel = model
       currentModel.value = model
       send({ type: 'set_model', model })
     },

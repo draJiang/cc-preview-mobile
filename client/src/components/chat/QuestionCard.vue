@@ -11,7 +11,7 @@ import { computed, reactive, ref } from 'vue'
 const props = defineProps<{ block: QuestionBlock }>()
 const { answerQuestion, skipQuestion } = useChat()
 
-// Per question: the picked option labels and the free-text "其他" answer.
+// Per question: the picked option labels and the free-text "Other" answer.
 // Typing an "other" answer clears the picks and vice versa.
 const picked = reactive<Record<string, string[]>>({})
 const other = reactive<Record<string, string>>({})
@@ -70,7 +70,7 @@ function formatAnswer(a: Answer | undefined) {
   <div v-if="!block.pending" class="flex flex-col gap-1 rounded-xl border bg-card/50 p-3 text-sm">
     <div class="flex items-center gap-2 text-xs text-muted-foreground">
       <MessageCircleQuestionIcon class="size-3.5" />
-      {{ block.resolution === 'answered' ? '已回答' : block.resolution === 'skipped' ? '已跳过' : '已失效' }}
+      {{ block.resolution === 'answered' ? 'Answered' : block.resolution === 'skipped' ? 'Skipped' : 'Expired' }}
     </div>
     <template v-if="block.resolution === 'answered'">
       <div v-for="q in block.questions" :key="q.question" class="min-w-0">
@@ -93,7 +93,7 @@ function formatAnswer(a: Answer | undefined) {
         {{ q.question }}
       </div>
       <div class="text-xs text-muted-foreground">
-        {{ q.multiSelect ? '可多选' : '单选' }}
+        {{ q.multiSelect ? 'Multi-select' : 'Single choice' }}
       </div>
       <div class="flex flex-col gap-2" :role="q.multiSelect ? 'group' : 'radiogroup'">
         <button
@@ -124,7 +124,7 @@ function formatAnswer(a: Answer | undefined) {
         </button>
         <Input
           :model-value="other[q.question] ?? ''"
-          placeholder="其他，请输入…"
+          placeholder="Other, type here…"
           class="h-11"
           @update:model-value="onOther(q.question, String($event))"
         />
@@ -132,10 +132,10 @@ function formatAnswer(a: Answer | undefined) {
     </div>
     <div class="grid grid-cols-2 gap-2">
       <Button variant="outline" class="h-11" :disabled="submitting" @click="skip">
-        跳过
+        Skip
       </Button>
       <Button class="h-11" :disabled="!complete || submitting" @click="submit">
-        发送回答
+        Send answer
       </Button>
     </div>
   </div>

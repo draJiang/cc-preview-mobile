@@ -72,13 +72,13 @@ export function toolSummary(name: string, input: Record<string, unknown>, cwd: s
     case 'TodoWrite': {
       const todos = Array.isArray(input.todos) ? input.todos as { status?: string }[] : []
       const done = todos.filter(t => t.status === 'completed').length
-      return `${todos.length} 项任务 · 已完成 ${done}`
+      return `${todos.length} tasks · ${done} done`
     }
     case 'Task':
     case 'Agent':
       return str(input.description) ?? ''
     case 'AskUserQuestion':
-      return '向你提问'
+      return 'Asking you a question'
     case 'ExitPlanMode': {
       // First Markdown heading, or the first non-empty line, as the plan title.
       const lines = (str(input.plan) ?? '').split('\n').map(l => l.trim()).filter(Boolean)
@@ -95,5 +95,5 @@ export function toolSummary(name: string, input: Record<string, unknown>, cwd: s
 export function truncate(text: string | undefined, max: number) {
   if (!text)
     return ''
-  return text.length > max ? `${text.slice(0, max)}\n…（已截断）` : text
+  return text.length > max ? `${text.slice(0, max)}\n… (truncated)` : text
 }

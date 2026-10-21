@@ -81,10 +81,10 @@ export type ServerMessage
     | { type: 'usage_error', message: string }
 
 export const PERMISSION_MODES = [
-  { value: 'default', label: '默认', description: '每次使用工具前都需要你确认' },
-  { value: 'acceptEdits', label: '自动接受编辑', description: '文件编辑自动通过，其他操作仍需确认' },
-  { value: 'plan', label: '仅规划', description: '只读分析并给出方案，不修改任何文件' },
-  { value: 'auto', label: '自动模式', description: '由 AI 审批操作，需要账号支持' },
+  { value: 'default', label: 'Default', description: 'Asks for confirmation before every tool use' },
+  { value: 'acceptEdits', label: 'Accept edits', description: 'File edits are auto-approved; other actions still ask' },
+  { value: 'plan', label: 'Plan only', description: 'Read-only analysis and a proposed plan; no files are changed' },
+  { value: 'auto', label: 'Auto', description: 'AI approves actions; requires account support' },
 ] as const
 
 export function permissionModeLabel(mode: string) {

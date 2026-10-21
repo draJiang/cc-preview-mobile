@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpIcon, BellDotIcon, ShieldIcon, SquareIcon } from '@lucide/vue'
+import { ArrowUpIcon, BellDotIcon, SquareIcon } from '@lucide/vue'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { useBlocks } from '@/composables/useBlocks'
 import { useChat } from '@/composables/useChat'
@@ -8,7 +8,7 @@ import { permissionModeLabel } from '@/lib/protocol'
 import { cn } from '@/lib/utils'
 import { computed, nextTick, ref } from 'vue'
 
-const { isProcessing, permissionMode, sendMessage, interrupt, connection } = useChat()
+const { isProcessing, permissionMode, selectedModelLabel, sendMessage, interrupt, connection } = useChat()
 const { offscreenPending, scrollToRequest } = useBlocks()
 const { openSettings } = useUi()
 
@@ -27,7 +27,7 @@ const pendingLabel = computed(() => {
     return ''
   const perms = list.filter(b => b.type === 'permission').length
   const qs = list.length - perms
-  return [perms && `${perms} 个待审批`, qs && `${qs} 个待回答`].filter(Boolean).join('，')
+  return [perms && `${perms} awaiting approval`, qs && `${qs} awaiting answer`].filter(Boolean).join(', ')
 })
 
 function autoGrow() {
@@ -62,35 +62,33 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="shrink-0 bg-background px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+  <div class="relative shrink-0 px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
     <div class="mx-auto w-full max-w-3xl">
-      <!-- Status row: only shows something when there is something to say -->
+      <!-- Floating status row: no background and no layout space of its own, so
+           the chat stays readable underneath; only the chips themselves catch taps. -->
       <div
-        v-if="pendingLabel || permissionMode !== 'default' || isProcessing"
-        class="flex min-h-9 items-center gap-2 pb-1.5"
+        v-if="pendingLabel || isProcessing"
+        class="pointer-events-none absolute inset-x-3 bottom-full flex items-center pb-1.5"
       >
-        <button
-          v-if="pendingLabel"
-          type="button"
-          class="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm"
-          @click="scrollToRequest(offscreenPending[0].id)"
-        >
-          <BellDotIcon class="size-3.5" />
-          {{ pendingLabel }}
-        </button>
-        <Shimmer v-else-if="isProcessing" as="span" class="text-xs" :duration="1.6">
-          Claude 正在工作…
-        </Shimmer>
-        <button
-          v-if="permissionMode !== 'default'"
-          type="button"
-          class="ml-auto flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-muted-foreground"
-          :aria-label="`权限模式：${permissionModeLabel(permissionMode)}，点按修改`"
-          @click="openSettings('mode')"
-        >
-          <ShieldIcon class="size-3.5" />
-          {{ permissionModeLabel(permissionMode) }}
-        </button>
+        <div class="mx-auto flex w-full max-w-3xl items-center">
+          <button
+            v-if="pendingLabel"
+            type="button"
+            class="pointer-events-auto flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground shadow-md"
+            @click="scrollToRequest(offscreenPending[0].id)"
+          >
+            <BellDotIcon class="size-3.5" />
+            {{ pendingLabel }}
+          </button>
+          <span
+            v-else
+            class="pointer-events-auto flex h-7 items-center rounded-full bg-background/90 px-3 shadow-sm backdrop-blur"
+          >
+            <Shimmer as="span" class="text-xs" :duration="1.6">
+              Claude is working…
+            </Shimmer>
+          </span>
+        </div>
       </div>
 
       <div class="flex items-end gap-2 rounded-3xl border bg-card p-1.5 pl-4 shadow-xs focus-within:border-ring/60">
@@ -98,9 +96,9 @@ function onKeydown(e: KeyboardEvent) {
           ref="textarea"
           v-model="text"
           rows="1"
-          placeholder="给 Claude Code 发消息…"
+          placeholder="Message Claude Code…"
           enterkeyhint="send"
-          aria-label="消息"
+          aria-label="Message"
           class="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-muted-foreground"
           @input="autoGrow"
           @keydown="onKeydown"
@@ -109,7 +107,7 @@ function onKeydown(e: KeyboardEvent) {
         />
         <button
           type="button"
-          :aria-label="showStop ? '停止' : '发送'"
+          :aria-label="showStop ? 'Stop' : 'Send'"
           :disabled="!showStop && !canSend"
           :class="cn(
             'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
@@ -119,6 +117,28 @@ function onKeydown(e: KeyboardEvent) {
         >
           <SquareIcon v-if="showStop" class="size-3.5 fill-current" />
           <ArrowUpIcon v-else class="size-5" />
+        </button>
+      </div>
+
+      <!-- Persistent info row below the input: plain small text, tap to change -->
+      <div class="flex items-center justify-between gap-3 px-3 pt-1 text-xs text-muted-foreground">
+        <button
+          type="button"
+          class="min-w-0 truncate py-1 active:text-foreground"
+          :class="permissionMode !== 'default' && 'text-foreground'"
+          :aria-label="`Permission mode: ${permissionModeLabel(permissionMode)}. Tap to change`"
+          @click="openSettings('mode')"
+        >
+          {{ permissionModeLabel(permissionMode) }}
+        </button>
+        <button
+          v-if="selectedModelLabel"
+          type="button"
+          class="min-w-0 truncate py-1 active:text-foreground"
+          :aria-label="`Model: ${selectedModelLabel}. Tap to change`"
+          @click="openSettings('model')"
+        >
+          {{ selectedModelLabel }}
         </button>
       </div>
     </div>

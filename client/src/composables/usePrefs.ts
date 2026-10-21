@@ -8,10 +8,12 @@ interface Prefs {
   theme: Theme
   expandTools: boolean
   expandThinking: boolean
+  lastModel: string
+  lastMode: string
 }
 
 const STORAGE_KEY = 'cc-mobile-prefs'
-const defaults: Prefs = { theme: 'system', expandTools: false, expandThinking: false }
+const defaults: Prefs = { theme: 'system', expandTools: false, expandThinking: false, lastModel: '', lastMode: '' }
 
 function load(): Prefs {
   try {

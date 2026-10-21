@@ -50,7 +50,7 @@ export type Block
 function resultMeta(item: Extract<ChatItem, { kind: 'result' }>) {
   const parts: string[] = []
   if (item.numTurns)
-    parts.push(`${item.numTurns} 轮`)
+    parts.push(`${item.numTurns} turns`)
   if (typeof item.costUsd === 'number')
     parts.push(`$${item.costUsd.toFixed(4)}`)
   if (item.durationMs)
@@ -113,7 +113,7 @@ export function buildBlocks(items: ChatItem[]): Block[] {
           step.images = item.images
         }
         else {
-          pushStep({ type: 'tool', id: `r-${i}`, toolName: '工具结果', input: {}, status: item.isError ? 'error' : 'done', output: item.content, images: item.images }, i)
+          pushStep({ type: 'tool', id: `r-${i}`, toolName: 'Tool result', input: {}, status: item.isError ? 'error' : 'done', output: item.content, images: item.images }, i)
         }
         break
       }
@@ -147,7 +147,7 @@ export function buildBlocks(items: ChatItem[]): Block[] {
         break
       }
       case 'system_init':
-        push({ type: 'note', id: `n-${i}`, text: `会话已连接 · ${item.cwd.split('/').filter(Boolean).pop() || item.cwd}` })
+        push({ type: 'note', id: `n-${i}`, text: `Session connected · ${item.cwd.split('/').filter(Boolean).pop() || item.cwd}` })
         break
       case 'system_note':
         push({ type: 'note', id: `n-${i}`, text: item.text })

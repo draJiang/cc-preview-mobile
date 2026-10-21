@@ -38,8 +38,8 @@ onBeforeUnmount(() => observer.disconnect())
 
 <template>
   <div ref="root" class="relative flex min-h-0 flex-1 flex-col">
-    <Conversation :key="currentSessionId ?? ''" class="min-h-0" aria-label="对话" :is-dark="isDark">
-      <ConversationContent class="mx-auto w-full max-w-3xl gap-4 px-4 pt-4 pb-6">
+    <Conversation :key="currentSessionId ?? ''" class="min-h-0" aria-label="Conversation" :is-dark="isDark">
+      <ConversationContent class="mx-auto w-full max-w-3xl gap-4 px-4 pt-4 pb-14">
         <EmptyState v-if="!blocks.some(b => b.type === 'user')" class="min-h-[55dvh]" />
         <template v-for="block in blocks" :key="block.id">
           <div v-if="block.type === 'user'" class="flex justify-end">
@@ -65,7 +65,7 @@ onBeforeUnmount(() => observer.disconnect())
           </div>
         </template>
       </ConversationContent>
-      <ConversationScrollButton class="bottom-3 size-9 shadow-md" aria-label="回到底部" />
+      <ConversationScrollButton class="bottom-3 size-9 shadow-md" aria-label="Scroll to bottom" />
     </Conversation>
   </div>
 </template>
